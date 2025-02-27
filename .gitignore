@@ -1,0 +1,5 @@
+/.testing
+lib/**
+objs/**
+sample
+a.out
