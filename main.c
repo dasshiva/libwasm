@@ -19,6 +19,12 @@ int main(int argc, const char* argv[]) {
             return 1;
         }
 
+        s = parseModule(&reader);
+        if (s) {
+            printf("Error: %s", errString(s));
+            return 1;
+        }
+        
         destroyReader(&reader);
 
         argv++;

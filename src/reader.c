@@ -1,9 +1,14 @@
+#include "read_utils.h"
 #include <libwasm.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <stdio.h>
 
-
+#define  CHECK_IF_FILE_TRUNCATED(file) { \
+    if (file->offset == UINT32_MAX) { \
+        return WASM_TRUNCATED_FILE; \
+    } \
+}
 #define  DEFAULT_MAX_MODULE_SIZE          (16 * 1024 * 1024)               // 16 MB default
 #define  DEFAULT_MAX_BUILTIN_SECTION_SIZE ((DEFAULT_MAX_MODULE_SIZE) / 8)  // 2 MB default
 #define  DEFAULT_MAX_CUSTOM_SECTION_SIZE  ((DEFAULT_MAX_MODULE_SIZE) / 16) // 1 MB default
@@ -59,6 +64,37 @@ int createReader(struct WasmModuleReader *init, struct WasmConfig *config) {
 free_data:
     free(init->_data);
     return status;
+}
+
+int parseModule(struct WasmModuleReader *reader) {
+    uint32_t magic = fetchRawU32(reader);
+    if (magic != WASM_MAGIC) 
+        return WASM_FILE_INVALID_MAGIC;
+    CHECK_IF_FILE_TRUNCATED(reader);
+
+    uint32_t version = fetchRawU32(reader);
+    if(version != WASM_VERSION)
+        return WASM_FILE_INVALID_VERSION;
+    CHECK_IF_FILE_TRUNCATED(reader);
+    
+    printf("Before loop offset = 0x%x\n", reader->offset);
+    while (1) {
+        if (reader->offset >= reader->size && reader->offset != UINT32_MAX) 
+            break;
+
+        int id = fetchRawU8(reader);
+        CHECK_IF_FILE_TRUNCATED(reader);
+
+        uint32_t section = fetchU32(reader);
+        CHECK_IF_FILE_TRUNCATED(reader);
+
+        printf("Start = 0x%x Id = %d Size = 0x%x\n", reader->offset, id, section);
+        if (reader->offset + section == reader->size)
+            break;
+        skip(reader, section);
+    }
+
+    return WASM_SUCCESS;
 }
 
 struct WasmModule* getModuleFromReader(struct WasmModuleReader* reader) {

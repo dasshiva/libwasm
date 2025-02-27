@@ -71,8 +71,8 @@ struct WasmModule* getModuleFromWriter(struct WasmModuleWriter* init);
 // Always use destroyWriter() explicitly to free these resources
 void   destroyWriter(struct WasmModuleWriter* obj);
 
-#define WASM_MAGIC   0x0061736D
-#define WASM_VERSION 0x01000000
+#define WASM_MAGIC   0x6D736100
+#define WASM_VERSION 0x00000001
 
 enum {
 	WASM_SUCCESS = 0,
@@ -86,7 +86,7 @@ enum {
 	WASM_INVALID_MODULE_NAME,
 	WASM_MODULE_TOO_LARGE,
 	WASM_FILE_READ_ERROR,
-	WASM_MAX_ERROR,
+	WASM_MAX_ERROR
 };
 
 const char* errString(int err);
