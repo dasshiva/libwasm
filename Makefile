@@ -3,7 +3,7 @@ objects-c=$(subst src,objs,$(sources))
 objects=$(objects-c:.c=.o)
 
 sample: main.c lib/libwasm.so
-	$(CC) $< -Llib -lwasm -o $@
+	$(CC) $< -Llib -lwasm -o $@ -Wl,-rpath=./lib
 
 lib/libwasm.so:  $(objects)
 	$(CC) -shared -fPIC -o $@ $^
