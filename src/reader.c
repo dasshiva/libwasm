@@ -2,6 +2,7 @@
 #include <libwasm.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <pthread.h>
 #include <stdio.h>
 
 #define  CHECK_IF_FILE_TRUNCATED(file) { \
@@ -66,6 +67,17 @@ free_data:
     return status;
 }
 
+struct section_offset {
+    uint32_t lo;
+    uint32_t size;
+    uint8_t  type;
+};
+
+void* parseSection(void* arg) {
+    printf("Parsing section\n");
+    return NULL;
+}
+
 int parseModule(struct WasmModuleReader *reader) {
     uint32_t magic = fetchRawU32(reader);
     if (magic != WASM_MAGIC) 
@@ -76,23 +88,88 @@ int parseModule(struct WasmModuleReader *reader) {
     if(version != WASM_VERSION)
         return WASM_FILE_INVALID_VERSION;
     CHECK_IF_FILE_TRUNCATED(reader);
-    
-    printf("Before loop offset = 0x%x\n", reader->offset);
-    while (1) {
-        if (reader->offset >= reader->size && reader->offset != UINT32_MAX) 
-            break;
 
+    if (reader->offset == reader->size)  // To deal with empty files
+            return WASM_SUCCESS;
+
+    uint16_t nsecs = 0;
+
+     // the offset from where sections start
+    uint16_t section_start_offset = reader->offset;
+
+    // First, a validation pass to check module structural integrity
+    // This makes sure that all sections are really how long they are
+    // and that there are no truncated sections
+    // Also tells us the number of sections we have in the file, allowing us to 
+    // prepare other data structures
+
+    while (1) {
         int id = fetchRawU8(reader);
         CHECK_IF_FILE_TRUNCATED(reader);
 
         uint32_t section = fetchU32(reader);
         CHECK_IF_FILE_TRUNCATED(reader);
 
-        printf("Start = 0x%x Id = %d Size = 0x%x\n", reader->offset, id, section);
+        nsecs++;
         if (reader->offset + section == reader->size)
             break;
+
         skip(reader, section);
     }
+
+    reader->thisModule->flags |= nsecs;
+    reader->thisModule->sections = malloc(sizeof(Section) * nsecs);
+    struct section_offset* section_offsets = malloc(sizeof(struct section_offset) * nsecs);
+
+    reader->offset = section_start_offset;
+
+    // Now record the section offsets and their sizes
+    // This allows us to parse each section parallely yielding better performance
+    for(int i = 0; i < nsecs; i++) {
+        uint8_t id = fetchRawU8(reader);
+        uint32_t sec_length = fetchU32(reader);
+        section_offsets[i].lo = reader->offset;
+        section_offsets[i].size = sec_length;
+        section_offsets[i].type = id;
+        skip(reader, sec_length);
+    }
+
+    /*for (int i = 0; i < nsecs; i++) {
+        printf("Start = 0x%x Size = 0x%x Type = %d\n", section_offsets[i].lo, section_offsets[i].size, section_offsets[i].type);
+    } */
+
+    
+    pthread_t p1, p2, p3; // Process sections 3 at once
+    int workloads = nsecs / 3;
+    int extras = nsecs % 3;
+    if (workloads) {
+        for (int i = 0; i < workloads * 3; i += 3) {
+            pthread_create(&p1, NULL, &parseSection, NULL);
+            pthread_create(&p2, NULL, &parseSection, NULL);
+            pthread_create(&p3, NULL, &parseSection, NULL);
+
+            pthread_join(p1, NULL);
+            pthread_join(p2, NULL);
+            pthread_join(p3, NULL);
+        }
+    }
+
+    if (extras) {
+        for (int i = workloads * 3; i < nsecs; i++) {
+            parseSection(NULL);
+        }
+    }
+    
+
+    /* 
+    * To benchmark the scalar implementation with the parallel one
+    * comment from 'pthread p1, p2 ...' upto the end of the 'if (extras) ..' block
+    * and use a benchmarking tool like hyperfine or time
+    for (int i = 0; i < nsecs; i++) {
+        parseSection(NULL);
+    }
+    */
+    reader->offset = section_start_offset;
 
     return WASM_SUCCESS;
 }
