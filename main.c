@@ -1,6 +1,1 @@
-#include <amon.h>
-extern int doom();
-int main() {
-	doom();
-	return 0;
-};
+int main() { return 0; }
