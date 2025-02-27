@@ -1,3 +1,4 @@
+#include <amon.h>
 extern int doom();
 int main() {
 	doom();
