@@ -1,5 +1,6 @@
 #include "read_utils.h"
 #include <libwasm.h>
+#include <section.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <pthread.h>
@@ -73,11 +74,6 @@ struct section_offset {
     uint8_t  type;
 };
 
-void* parseSection(void* arg) {
-    printf("Parsing section\n");
-    return NULL;
-}
-
 int parseModule(struct WasmModuleReader *reader) {
     uint32_t magic = fetchRawU32(reader);
     if (magic != WASM_MAGIC) 
@@ -105,6 +101,8 @@ int parseModule(struct WasmModuleReader *reader) {
 
     while (1) {
         int id = fetchRawU8(reader);
+	if (id >= WASM_MAX_SECTION)
+		return WASM_INVALID_SECTION_ID;
         CHECK_IF_FILE_TRUNCATED(reader);
 
         uint32_t section = fetchU32(reader);
@@ -144,9 +142,30 @@ int parseModule(struct WasmModuleReader *reader) {
     int extras = nsecs % 3;
     if (workloads) {
         for (int i = 0; i < workloads * 3; i += 3) {
-            pthread_create(&p1, NULL, &parseSection, NULL);
-            pthread_create(&p2, NULL, &parseSection, NULL);
-            pthread_create(&p3, NULL, &parseSection, NULL);
+	    struct ParseSectionParams param1 = {
+		    .data = reader->_data,
+		    .offset = section_offsets[i].lo,
+		    .size = section_offsets[i].size,
+		    .section = &reader->thisModule->sections[i]
+	    };
+
+	    struct ParseSectionParams param2 = {
+		    .data = reader->_data,
+		    .offset = section_offsets[i + 1].lo,
+		    .size = section_offsets[i + 1].size,
+                    .section = &reader->thisModule->sections[i + 1]
+	    };
+
+	    struct ParseSectionParams param3 = {
+		    .data = reader->_data,
+		    .offset = section_offsets[i + 2].lo,
+		    .size = section_offsets[i + 2].size,
+		    .section = &reader->thisModule->sections[i + 2]
+	    };
+
+            pthread_create(&p1, NULL, parseSectionList[section_offsets[i].type], &param1);
+            pthread_create(&p2, NULL, parseSectionList[section_offsets[i + 1].type], &param2);
+            pthread_create(&p3, NULL, parseSectionList[section_offsets[i + 2].type], &param3);
 
             pthread_join(p1, NULL);
             pthread_join(p2, NULL);
@@ -156,7 +175,13 @@ int parseModule(struct WasmModuleReader *reader) {
 
     if (extras) {
         for (int i = workloads * 3; i < nsecs; i++) {
-            parseSection(NULL);
+	    struct ParseSectionParams param = {
+		    .data = reader->_data,
+                    .offset = section_offsets[i].lo,
+                    .size = section_offsets[i].size,
+                    .section = &reader->thisModule->sections[i]
+	    };
+            parseSectionList[section_offsets[i].type](&param);
         }
     }
     
@@ -166,7 +191,7 @@ int parseModule(struct WasmModuleReader *reader) {
     * comment from 'pthread p1, p2 ...' upto the end of the 'if (extras) ..' block
     * and use a benchmarking tool like hyperfine or time
     for (int i = 0; i < nsecs; i++) {
-        parseSection(NULL);
+        parseSectionList[section_offsets[i].type](NULL);
     }
     */
     reader->offset = section_start_offset;

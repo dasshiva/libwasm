@@ -12,6 +12,7 @@ static const char* error_to_string[] = {
     [WASM_ARGUMENT_NULL] = "any of the secondary arguments are null\n",
     [WASM_MODULE_TOO_LARGE] = "module size is greater than largest possible size\n",
     [WASM_FILE_READ_ERROR] = "could not read module from disk\n",
+    [WASM_INVALID_SECTION_ID] = "Module has section with invalid id\n"
 };
 
 
