@@ -142,7 +142,7 @@ int parseModule(struct WasmModuleReader *reader) {
         printf("Start = 0x%x Size = 0x%x Type = %d\n", section_offsets[i].lo, section_offsets[i].size, section_offsets[i].type);
     } */
 
-    /*
+    
     pthread_t p1, p2, p3; // Process sections 3 at once
     int workloads = nsecs / 3;
     int extras = nsecs % 3;
@@ -199,7 +199,6 @@ int parseModule(struct WasmModuleReader *reader) {
             parseSectionList[section_offsets[i].type](&param);
         }
     }
-    */
     
 
     /* 

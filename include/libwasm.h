@@ -90,6 +90,9 @@ enum {
 	WASM_INVALID_FUNCTYPE,
 	WASM_EMPTY_NAME,
 	WASM_INVALID_IMPORT_TYPE,
+	WASM_TOO_MANY_TABLES,
+	WASM_INVALID_TABLE_ELEMENT_TYPE,
+	WASM_TOO_MANY_MEMORIES,
 	WASM_MAX_ERROR,
 };
 
@@ -123,6 +126,13 @@ struct ImportSectionImport {
 
 typedef struct ImportSectionImport Import;
 
+struct Table {
+	uint32_t min;
+	uint32_t max;
+};
+
+typedef struct Table table;
+
 struct Section {
 	const char*    name;
 	uint64_t       hash;
@@ -130,6 +140,8 @@ struct Section {
 		struct TypeSectionType* types;
 		struct ImportSectionImport* imports;
 		uint32_t* functions;
+		struct Table* table;
+		struct Table* memory; // Table and memory sections are functionally almost the same
 		void*  custom;  // Unknown custom section
 	};
 	uint32_t       flags;

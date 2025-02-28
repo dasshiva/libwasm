@@ -24,7 +24,9 @@ static const char* error_to_string[] = {
     [WASM_TOO_MANY_PARAMS] = "Any function can only have upto 255 params\n",
     [WASM_TRUNCATED_SECTION] = "Section is smaller than it claims to be\n",
     [WASM_EMPTY_NAME] = "Import/export module name or component name is empty\n",
-    [WASM_INVALID_IMPORT_TYPE] = "Import type is not between 0 and 3\n"
+    [WASM_INVALID_IMPORT_TYPE] = "Import type is not between 0 and 3\n",
+    [WASM_TOO_MANY_TABLES] = "Each module may have only 1 table\n",
+    [WASM_INVALID_TABLE_ELEMENT_TYPE] = "Tables can only be of function type (0x70)\n",
 };
 
 

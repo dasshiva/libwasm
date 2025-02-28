@@ -237,13 +237,98 @@ void* parseFunctionSection(void* arg) {
 	return NULL;
 }
 
+void* parseTableSection(void* arg) {
+	struct ParseSectionParams* params = arg;
+	struct WasmModuleReader reader;
+	reader._data = params->data;
+	reader.offset = params->offset;
+	reader.size = params->size + params->offset + 1;
+
+	uint32_t size = fetchU32(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	if (size != 1)
+		return ((void*) WASM_TOO_MANY_TABLES);
+
+	if (fetchU32(&reader) != 0x70)
+		return ((void*) WASM_INVALID_TABLE_ELEMENT_TYPE);
+
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	params->section->flags = 1;
+	params->section->name = "Table";
+	params->section->hash = hash("Table");
+	params->section->table = malloc(sizeof(struct Table));
+
+	uint8_t limtype = fetchRawU8(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	if (limtype) {
+		params->section->table->min = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+		params->section->table->max = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+	}
+	else {
+		params->section->table->min = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+		params->section->table->max = UINT32_MAX;
+	}
+
+	if (reader.offset + 1 != reader.size)                         
+		return ((void*) WASM_TRAILING_BYTES);
+
+	return NULL;
+}
+
+void* parseMemorySection(void* arg) {
+	struct ParseSectionParams* params = arg;
+	struct WasmModuleReader reader;
+	reader._data = params->data;
+	reader.offset = params->offset;
+	reader.size = params->size + params->offset + 1;
+
+	uint32_t size = fetchU32(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	if (size != 1)
+		return ((void*) WASM_TOO_MANY_MEMORIES);
+
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	params->section->flags = 1;
+	params->section->name = "Memory";
+	params->section->hash = hash("Memory");
+	params->section->memory = malloc(sizeof(struct Table));
+
+	uint8_t limtype = fetchRawU8(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	if (limtype) {
+		params->section->memory->min = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+		params->section->memory->max = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+	}
+	else {
+		params->section->memory->min = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+		params->section->memory->max = UINT32_MAX;
+	}
+
+	if (reader.offset + 1 != reader.size)                         
+		return ((void*) WASM_TRAILING_BYTES);
+
+	return NULL;
+}
+
 parseFnList parseSectionList[] = {
 	[WASM_CUSTOM_SECTION] = &parseSection,
 	[WASM_TYPE_SECTION] = &parseTypeSection,
 	[WASM_IMPORT_SECTION] = &parseImportSection,
 	[WASM_FUNCTION_SECTION] = &parseFunctionSection,
-	[WASM_TABLE_SECTION] = &parseSection,
-	[WASM_MEMORY_SECTION] = &parseSection,
+	[WASM_TABLE_SECTION] = &parseTableSection,
+	[WASM_MEMORY_SECTION] = &parseMemorySection,
 	[WASM_GLOBAL_SECTION] = &parseSection,
 	[WASM_EXPORT_SECTION] = &parseSection,
 	[WASM_START_SECTION] = &parseSection,
