@@ -22,7 +22,9 @@ static const char* error_to_string[] = {
     [WASM_TRAILING_BYTES] = "Section has unclaimed trailing bytes\n",
     [WASM_UNSUPPORTED_MULTIVALUE_FUNC] = "Multivalue functions are unsupported\n",
     [WASM_TOO_MANY_PARAMS] = "Any function can only have upto 255 params\n",
-    [WASM_TRUNCATED_SECTION] = "Section is smaller than it claims to be\n"
+    [WASM_TRUNCATED_SECTION] = "Section is smaller than it claims to be\n",
+    [WASM_EMPTY_NAME] = "Import/export module name or component name is empty\n",
+    [WASM_INVALID_IMPORT_TYPE] = "Import type is not between 0 and 3\n"
 };
 
 

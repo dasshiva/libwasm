@@ -88,6 +88,8 @@ enum {
 	WASM_UNSUPPORTED_MULTIVALUE_FUNC,
 	WASM_TOO_MANY_PARAMS,
 	WASM_INVALID_FUNCTYPE,
+	WASM_EMPTY_NAME,
+	WASM_INVALID_IMPORT_TYPE,
 	WASM_MAX_ERROR,
 };
 
@@ -114,7 +116,7 @@ struct ImportSectionImport {
 	char*       name;
 	uint64_t    hashName;
 	char*       module;
-	uint64_t    hasModule;
+	uint64_t    hashModule;
 	uint32_t    index;
 	uint8_t     type;
 };

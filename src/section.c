@@ -108,7 +108,7 @@ void* parseTypeSection(void* arg) {
 
 	}
 
-	for (int i = 0; i < size; i++) {
+	/*for (int i = 0; i < size; i++) {
 		struct TypeSectionType ty = params->section->types[i];
 		if (ty.ret) {
 			printf("Returns = 0x%x\n", ty.ret);
@@ -121,7 +121,7 @@ void* parseTypeSection(void* arg) {
 			}
 			printf("\n");
 		}
-	}
+	}*/
 
 	if (reader.offset + 1 != reader.size) 
 		return ((void*) WASM_TRAILING_BYTES);
@@ -146,6 +146,57 @@ void* parseImportSection(void* arg) {
 		params->section->custom = NULL;
 		return NULL;
 	}
+
+	params->section->imports = malloc(sizeof(struct ImportSectionImport) * size);
+	params->section->flags = size;
+
+	for (int i = 0; i < size; i++) {
+		uint32_t modlen = fetchU32(&reader) + 1; // space for null
+                if (!modlen)
+                        return ((void*) WASM_EMPTY_NAME);
+                CHECK_IF_FILE_TRUNCATED(reader);
+
+		if (reader.offset + modlen - 1>= reader.size) 
+			return ((void*) WASM_TRUNCATED_SECTION);
+
+                params->section->imports[i].module = malloc(sizeof(const char*) * modlen);
+                memcpy(params->section->imports[i].module, (uint8_t*)reader._data + reader.offset, modlen);
+                params->section->imports[i].module[modlen - 1] = '\0';
+                params->section->imports[i].hashModule = hash(params->section->imports[i].module);
+                skip(&reader, modlen - 1);
+		CHECK_IF_FILE_TRUNCATED(reader);
+
+		uint32_t namelen = fetchU32(&reader) + 1; // space for null
+                if (!namelen)                                                                       return ((void*) WASM_EMPTY_NAME);
+                CHECK_IF_FILE_TRUNCATED(reader);
+
+		if (reader.offset + namelen - 1 >= reader.size)
+			return ((void*) WASM_TRUNCATED_SECTION);
+
+		params->section->imports[i].name = malloc(sizeof(const char*) * namelen);
+		memcpy(params->section->imports[i].name, (uint8_t*)reader._data + reader.offset, namelen);
+		params->section->imports[i].name[namelen - 1] = '\0';
+		params->section->imports[i].hashName = hash(params->section->imports[i].name);
+                skip(&reader, namelen - 1);
+		CHECK_IF_FILE_TRUNCATED(reader);
+
+		params->section->imports[i].type = fetchRawU8(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+		if (params->section->imports[i].type >= WASM_MAXTYPE)
+			return ((void*) WASM_INVALID_IMPORT_TYPE);
+
+		params->section->imports[i].index = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+	}
+
+	/* for (int i = 0; i < size; i++) {
+		printf("%s.", params->section->imports[i].module);
+		printf("%s ", params->section->imports[i].name);
+		printf("Type = %d Index =%d\n", params->section->imports[i].type, params->section->imports[i].index);
+	} */
+
+	if (reader.offset + 1 != reader.size)                         
+		return ((void*) WASM_TRAILING_BYTES);
 
 	return NULL;
 }
