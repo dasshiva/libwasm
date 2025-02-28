@@ -2,6 +2,7 @@ sources=$(wildcard src/*.c)
 objects-c=$(subst src,objs,$(sources))
 objects=$(objects-c:.c=.o)
 debug_objects=$(subst objs,objs-debug,$(objects))
+optimised_objects=$(subst objs,objs-opt, $(objects))
 headers=$(wildcard include/*.h)
 
 sample: main.c lib/libwasm.so $(headers)
@@ -21,5 +22,14 @@ lib/libdebugwasm.so: $(debug_objects)
 
 objs-debug/%.o: src/%.c $(headers)
 	$(CC) -c -o $@ $< -Iinclude -fPIC -g
+
+release: main.c lib/libwasmopt.so $(headers)                                
+	$(CC) $< -Llib -lwasmopt -o $@ -Wl,-rpath=./lib -Iinclude
+
+lib/libwasmopt.so:  $(optimised_objects)
+	$(CC) -shared -fPIC -o $@ $^ 
+
+objs-opt/%.o: src/%.c $(headers)
+	$(CC) -c -o $@ $< -Iinclude -fPIC -O3
 
 .SECONDARY: objects debug_objects

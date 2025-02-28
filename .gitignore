@@ -6,3 +6,5 @@ a.out
 **.swp
 objs-debug/**
 debug
+release
+objs-opt/**
