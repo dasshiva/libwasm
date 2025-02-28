@@ -426,6 +426,15 @@ void* parseCodeSection(void* arg) {
 	return NULL;
 }
 
+void* parseElementSection(void* arg) {                                  
+	struct ParseSectionParams* params = arg;
+	struct WasmModuleReader reader;
+	reader._data = params->data;
+	reader.offset = params->offset;
+	reader.size = params->size + params->offset + 1;
+	return NULL;
+}
+
 parseFnList parseSectionList[] = {
 	[WASM_CUSTOM_SECTION] = &parseCustomSection,
 	[WASM_TYPE_SECTION] = &parseTypeSection,
@@ -436,7 +445,7 @@ parseFnList parseSectionList[] = {
 	[WASM_GLOBAL_SECTION] = &parseGlobalSection,
 	[WASM_EXPORT_SECTION] = &parseExportSection,
 	[WASM_START_SECTION] = &parseStartSection,
-	[WASM_ELEMENT_SECTION] = &parseSection,
+	[WASM_ELEMENT_SECTION] = &parseElementSection,
 	[WASM_CODE_SECTION] = &parseCodeSection,
 	[WASM_DATA_SECTION] = &parseDataSection,
 	[WASM_MAX_SECTION] = &internal_error
