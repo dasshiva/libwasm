@@ -83,22 +83,32 @@ enum {
 	WASM_INVALID_SECTION_ID,
 	WASM_SECTION_TOO_LARGE,
 	WASM_CUSTOM_SECTION_TOO_LARGE,
+	WASM_INVALID_TYPEVAL,
+	WASM_TRAILING_BYTES,
+	WASM_UNSUPPORTED_MULTIVALUE_FUNC,
+	WASM_TOO_MANY_PARAMS,
+	WASM_INVALID_FUNCTYPE,
 	WASM_MAX_ERROR,
 };
 
 const char* errString(int err);
 
-struct TypeSection {
-	
+struct TypeSectionType {
+	uint8_t* params;
+	uint8_t  ret;
+	uint8_t  paramsLen;
 };
+
+typedef struct TypeSectionType Type;
 
 struct Section {
 	const char*    name;
 	uint64_t       hash;
 	union {
-		struct TypeSection* type;
-		void* custom;  // Unknown custom section that we cannot use
+		struct TypeSectionType* types;
+		void*  custom;  // Unknown custom section
 	};
+	uint32_t       flags;
 };
 
 #endif

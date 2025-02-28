@@ -17,6 +17,11 @@ static const char* error_to_string[] = {
     [WASM_MAX_ERROR] = "Internal error: WASM_MAX_ERROR cannot be reported, possible bug\n",
     [WASM_SECTION_TOO_LARGE] = "Size of builtin section is larger than maximum configured size\n",
     [WASM_CUSTOM_SECTION_TOO_LARGE] = "Size of custom section is larger than maximum configured size\n",
+    [WASM_INVALID_FUNCTYPE] = "functype does not start with 0x60\n",
+    [WASM_INVALID_TYPEVAL] = "valtype does not lie between 0x7F and 0x7C\n",
+    [WASM_TRAILING_BYTES] = "Section has unclaimed trailing bytes\n",
+    [WASM_UNSUPPORTED_MULTIVALUE_FUNC] = "Multivalue functions are unsupported\n",
+    [WASM_TOO_MANY_PARAMS] = "Any function can only have upto 255 params\n",
     [WASM_TRUNCATED_SECTION] = "Section is smaller than it claims to be\n"
 };
 

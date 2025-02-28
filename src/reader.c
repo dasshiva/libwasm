@@ -169,7 +169,6 @@ int parseModule(struct WasmModuleReader *reader) {
 		        .size = section_offsets[i + 2].size,
 		        .section = &reader->thisModule->sections[i + 2]
 	        };
-
             pthread_create(&p1, NULL, parseSectionList[section_offsets[i].type], &param1);
             pthread_create(&p2, NULL, parseSectionList[section_offsets[i + 1].type], &param2);
             pthread_create(&p3, NULL, parseSectionList[section_offsets[i + 2].type], &param3);
