@@ -322,6 +322,83 @@ void* parseMemorySection(void* arg) {
 	return NULL;
 }
 
+void* parseExportSection(void* arg) {
+	struct ParseSectionParams* params = arg;
+	struct WasmModuleReader reader;
+	reader._data = params->data;
+	reader.offset = params->offset;
+	reader.size = params->size + params->offset + 1;
+
+	uint32_t size = fetchU32(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	params->section->name = "Export";
+	params->section->hash = hash("Export");
+	if (!size) {
+		params->section->flags = 0;
+		params->section->custom = NULL;
+		return NULL;
+	}
+
+	params->section->exports = malloc(sizeof(struct ExportSectionExport) * size);
+	params->section->flags = size;
+
+	for (int i = 0; i < size; i++) {
+		uint32_t namelen = fetchU32(&reader) + 1; // space for null
+            if (!namelen)                                                                       
+				return ((void*) WASM_EMPTY_NAME);
+        CHECK_IF_FILE_TRUNCATED(reader);
+
+		if (reader.offset + namelen - 1 >= reader.size)
+			return ((void*) WASM_TRUNCATED_SECTION);
+
+		params->section->exports[i].name = malloc(sizeof(const char*) * namelen);
+		memcpy(params->section->exports[i].name, (uint8_t*)reader._data + reader.offset, namelen);
+		params->section->exports[i].name[namelen - 1] = '\0';
+		params->section->exports[i].hashName = hash(params->section->exports[i].name);
+        skip(&reader, namelen - 1);
+		CHECK_IF_FILE_TRUNCATED(reader);
+
+		params->section->exports[i].type = fetchRawU8(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+		if (params->section->exports[i].type >= WASM_MAXTYPE)
+			return ((void*) WASM_INVALID_IMPORT_TYPE);
+
+		params->section->exports[i].index = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+	}
+
+	/*
+		for (int i = 0; i < size; i++) {
+			printf("%s ", params->section->exports[i].name);
+			printf("Type = %d Index =%d\n", params->section->exports[i].type, params->section->exports[i].index);
+		}
+	*/
+	if (reader.offset + 1 != reader.size)                         
+		return ((void*) WASM_TRAILING_BYTES);
+
+	return NULL;
+}
+
+void* parseStartSection(void* arg) {
+	struct ParseSectionParams* params = arg;
+	struct WasmModuleReader reader;
+	reader._data = params->data;
+	reader.offset = params->offset;
+	reader.size = params->size + params->offset + 1;
+
+	uint32_t fn = fetchU32(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	params->section->start = fn;
+	params->section->flags = 0;
+	params->section->name = "Start";
+	params->section->hash = hash("Start");
+
+	printf("Start function  = %ld\n", params->section->start);
+	return NULL;
+}
+
 parseFnList parseSectionList[] = {
 	[WASM_CUSTOM_SECTION] = &parseSection,
 	[WASM_TYPE_SECTION] = &parseTypeSection,
@@ -330,8 +407,8 @@ parseFnList parseSectionList[] = {
 	[WASM_TABLE_SECTION] = &parseTableSection,
 	[WASM_MEMORY_SECTION] = &parseMemorySection,
 	[WASM_GLOBAL_SECTION] = &parseSection,
-	[WASM_EXPORT_SECTION] = &parseSection,
-	[WASM_START_SECTION] = &parseSection,
+	[WASM_EXPORT_SECTION] = &parseExportSection,
+	[WASM_START_SECTION] = &parseStartSection,
 	[WASM_ELEMENT_SECTION] = &parseSection,
 	[WASM_CODE_SECTION] = &parseSection,
 	[WASM_DATA_SECTION] = &parseSection,

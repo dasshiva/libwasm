@@ -126,6 +126,14 @@ struct ImportSectionImport {
 
 typedef struct ImportSectionImport Import;
 
+struct ExportSectionExport {
+	char*       name;
+	uint64_t    hashName;
+	uint32_t    index;
+	uint8_t     type;
+};
+
+typedef struct ExportSectionExport Export;
 struct Table {
 	uint32_t min;
 	uint32_t max;
@@ -142,6 +150,8 @@ struct Section {
 		uint32_t* functions;
 		struct Table* table;
 		struct Table* memory; // Table and memory sections are functionally almost the same
+		struct ExportSectionExport* exports;
+		uint64_t  start; 
 		void*  custom;  // Unknown custom section
 	};
 	uint32_t       flags;
