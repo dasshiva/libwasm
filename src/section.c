@@ -4,8 +4,8 @@
 #include <stdio.h>
 
 #define  CHECK_IF_FILE_TRUNCATED(file) { \
-	if (file->offset == UINT32_MAX) { \
-	return WASM_TRUNCATED_FILE; \
+	if (file.offset == UINT32_MAX) { \
+		return ((void*) WASM_TRUNCATED_SECTION); \
     } \
 }
 
@@ -37,9 +37,25 @@ void* parseSection(void* arg) {
 	return NULL;
 }
 
+void* parseTypeSection(void* arg) {
+	struct ParseSectionParams* params = arg;
+
+	struct WasmModuleReader reader;
+	reader._data = params->data;
+	reader.offset = params->offset;
+	reader.size = params->size;
+
+	uint32_t size = fetchU32(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	params->section->name = "Type";
+	params->section->hash = hash("Type");
+	return NULL;
+}
+
 parseFnList parseSectionList[] = {
 	[WASM_CUSTOM_SECTION] = &parseSection,
-	[WASM_TYPE_SECTION] = &parseSection,
+	[WASM_TYPE_SECTION] = &parseTypeSection,
 	[WASM_IMPORT_SECTION] = &parseSection,
 	[WASM_FUNCTION_SECTION] = &parseSection,
 	[WASM_TABLE_SECTION] = &parseSection,

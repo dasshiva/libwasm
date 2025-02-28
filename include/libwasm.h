@@ -22,13 +22,6 @@ struct WasmModuleWriter {
 	void*              _data;
 };
 
-struct Section {
-	const char*    name;
-	const uint64_t hash;
-	union {
-		void* custom;
-	};
-};
 
 struct WasmConfig {
 	uint32_t    maxCustomSectionSize;
@@ -38,6 +31,7 @@ struct WasmConfig {
 	const char* name;
 };
 
+struct Section;
 struct WasmModule {
 	const char*       name;
 	uint64_t          hash;
@@ -87,8 +81,24 @@ enum {
 	WASM_MODULE_TOO_LARGE,
 	WASM_FILE_READ_ERROR,
 	WASM_INVALID_SECTION_ID,
-	WASM_MAX_ERROR
+	WASM_SECTION_TOO_LARGE,
+	WASM_CUSTOM_SECTION_TOO_LARGE,
+	WASM_MAX_ERROR,
 };
 
 const char* errString(int err);
+
+struct TypeSection {
+	
+};
+
+struct Section {
+	const char*    name;
+	uint64_t       hash;
+	union {
+		struct TypeSection* type;
+		void* custom;  // Unknown custom section that we cannot use
+	};
+};
+
 #endif
