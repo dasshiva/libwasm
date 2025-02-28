@@ -1,8 +1,10 @@
 #include "libwasm.h"
 #include <section.h>
 #include <read_utils.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #define  CHECK_IF_FILE_TRUNCATED(file) { \
 	if (file.offset == UINT32_MAX) { \
@@ -201,11 +203,45 @@ void* parseImportSection(void* arg) {
 	return NULL;
 }
 
+void* parseFunctionSection(void* arg) {
+	struct ParseSectionParams* params = arg;
+	struct WasmModuleReader reader;
+	reader._data = params->data;
+	reader.offset = params->offset;
+	reader.size = params->size + params->offset + 1;
+
+	uint32_t size = fetchU32(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	if (!size)
+		return NULL;
+	
+	params->section->name = "Function";
+	params->section->hash = hash("Function");
+	params->section->flags = size;
+	params->section->functions = malloc(sizeof(uint32_t) * size);
+
+	for (int i = 0; i < size; i++) {
+		params->section->functions[i] = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+	}
+
+	/*
+	for (int i = 0; i < size; i++) {
+		printf("%d\n", params->section->functions[i]);
+	} */
+
+	if (reader.offset + 1 != reader.size)                         
+		return ((void*) WASM_TRAILING_BYTES);
+
+	return NULL;
+}
+
 parseFnList parseSectionList[] = {
 	[WASM_CUSTOM_SECTION] = &parseSection,
 	[WASM_TYPE_SECTION] = &parseTypeSection,
 	[WASM_IMPORT_SECTION] = &parseImportSection,
-	[WASM_FUNCTION_SECTION] = &parseSection,
+	[WASM_FUNCTION_SECTION] = &parseFunctionSection,
 	[WASM_TABLE_SECTION] = &parseSection,
 	[WASM_MEMORY_SECTION] = &parseSection,
 	[WASM_GLOBAL_SECTION] = &parseSection,

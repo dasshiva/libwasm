@@ -129,6 +129,7 @@ struct Section {
 	union {
 		struct TypeSectionType* types;
 		struct ImportSectionImport* imports;
+		uint32_t* functions;
 		void*  custom;  // Unknown custom section
 	};
 	uint32_t       flags;

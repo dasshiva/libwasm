@@ -142,7 +142,7 @@ int parseModule(struct WasmModuleReader *reader) {
         printf("Start = 0x%x Size = 0x%x Type = %d\n", section_offsets[i].lo, section_offsets[i].size, section_offsets[i].type);
     } */
 
-    
+    /*
     pthread_t p1, p2, p3; // Process sections 3 at once
     int workloads = nsecs / 3;
     int extras = nsecs % 3;
@@ -199,16 +199,24 @@ int parseModule(struct WasmModuleReader *reader) {
             parseSectionList[section_offsets[i].type](&param);
         }
     }
+    */
     
 
     /* 
     * To benchmark the scalar implementation with the parallel one
     * comment from 'pthread p1, p2 ...' upto the end of the 'if (extras) ..' block
-    * and use a benchmarking tool like hyperfine or time
-    for (int i = 0; i < nsecs; i++) {
-        parseSectionList[section_offsets[i].type](NULL);
-    }
-    */
+    * and use a benchmarking tool like hyperfine or time */
+    
+    /*for (int i = 0; i < nsecs; i++) {
+        struct ParseSectionParams param = {
+            .data = reader->_data,
+            .offset = section_offsets[i].lo,
+            .size = section_offsets[i].size,
+            .section = &reader->thisModule->sections[i]
+        };
+        parseSectionList[section_offsets[i].type](&param);
+    }*/
+    
     reader->offset = section_start_offset;
 
     return WASM_SUCCESS;
