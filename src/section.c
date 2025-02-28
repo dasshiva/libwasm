@@ -53,6 +53,12 @@ void* parseTypeSection(void* arg) {
 
 	params->section->name = "Type";
 	params->section->hash = hash("Type");
+	if (!size) {
+		params->section->flags = 0;
+		params->section->custom = NULL;
+		return NULL;
+	}
+
 	params->section->types = malloc(sizeof(struct TypeSectionType) * size);
 	params->section->flags = size;
 
@@ -123,10 +129,31 @@ void* parseTypeSection(void* arg) {
 	return NULL;
 }
 
+void* parseImportSection(void* arg) {
+	struct ParseSectionParams* params = arg;
+	struct WasmModuleReader reader;
+	reader._data = params->data;
+	reader.offset = params->offset;
+	reader.size = params->size + params->offset + 1;
+
+	uint32_t size = fetchU32(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	params->section->name = "Import";
+	params->section->hash = hash("Import");
+	if (!size) {
+		params->section->flags = 0;
+		params->section->custom = NULL;
+		return NULL;
+	}
+
+	return NULL;
+}
+
 parseFnList parseSectionList[] = {
 	[WASM_CUSTOM_SECTION] = &parseSection,
 	[WASM_TYPE_SECTION] = &parseTypeSection,
-	[WASM_IMPORT_SECTION] = &parseSection,
+	[WASM_IMPORT_SECTION] = &parseImportSection,
 	[WASM_FUNCTION_SECTION] = &parseSection,
 	[WASM_TABLE_SECTION] = &parseSection,
 	[WASM_MEMORY_SECTION] = &parseSection,

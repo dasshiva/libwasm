@@ -101,11 +101,32 @@ struct TypeSectionType {
 
 typedef struct TypeSectionType Type;
 
+// values for ImportSectionImport.type
+enum {
+	WASM_TYPEIDX,
+	WASM_TABLETYPE,
+	WASM_MEMTYPE,
+	WASM_GLOBALTYPE,
+	WASM_MAXTYPE
+};
+
+struct ImportSectionImport {
+	char*       name;
+	uint64_t    hashName;
+	char*       module;
+	uint64_t    hasModule;
+	uint32_t    index;
+	uint8_t     type;
+};
+
+typedef struct ImportSectionImport Import;
+
 struct Section {
 	const char*    name;
 	uint64_t       hash;
 	union {
 		struct TypeSectionType* types;
+		struct ImportSectionImport* imports;
 		void*  custom;  // Unknown custom section
 	};
 	uint32_t       flags;
