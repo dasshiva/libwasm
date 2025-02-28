@@ -24,12 +24,12 @@ objs-debug/%.o: src/%.c $(headers)
 	$(CC) -c -o $@ $< -Iinclude -fPIC -g
 
 release: main.c lib/libwasmopt.so $(headers)                                
-	$(CC) $< -Llib -lwasmopt -o $@ -Wl,-rpath=./lib -Iinclude
+	$(CC) $< -Llib -lwasmopt -o $@ -Wl,-rpath=./lib -Iinclude -flto=full
 
 lib/libwasmopt.so:  $(optimised_objects)
-	$(CC) -shared -fPIC -o $@ $^ 
+	$(CC) -shared -fPIC -o $@ $^ -flto=full
 
 objs-opt/%.o: src/%.c $(headers)
-	$(CC) -c -o $@ $< -Iinclude -fPIC -O3
+	$(CC) -c -o $@ $< -Iinclude -fPIC -O3 -flto=full
 
 .SECONDARY: objects debug_objects
