@@ -33,7 +33,7 @@ void* internal_error(void* arg) {
 
 #define CHECK_IF_VALID_VALTYPE(x) (((x) >= 0x7C) && ((x) <= 0x7F))
 
-void* parseSection(void* arg) {
+void* parseCustomSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -399,18 +399,45 @@ void* parseStartSection(void* arg) {
 	return NULL;
 }
 
+void* parseGlobalSection(void* arg) {
+	struct ParseSectionParams* params = arg;
+	struct WasmModuleReader reader;
+	reader._data = params->data;
+	reader.offset = params->offset;
+	reader.size = params->size + params->offset + 1;
+	return NULL;
+}
+
+void* parseDataSection(void* arg) {
+	struct ParseSectionParams* params = arg;
+	struct WasmModuleReader reader;
+	reader._data = params->data;
+	reader.offset = params->offset;
+	reader.size = params->size + params->offset + 1;
+	return NULL;
+}
+
+void* parseCodeSection(void* arg) {
+	struct ParseSectionParams* params = arg;
+	struct WasmModuleReader reader;
+	reader._data = params->data;
+	reader.offset = params->offset;
+	reader.size = params->size + params->offset + 1;
+	return NULL;
+}
+
 parseFnList parseSectionList[] = {
-	[WASM_CUSTOM_SECTION] = &parseSection,
+	[WASM_CUSTOM_SECTION] = &parseCustomSection,
 	[WASM_TYPE_SECTION] = &parseTypeSection,
 	[WASM_IMPORT_SECTION] = &parseImportSection,
 	[WASM_FUNCTION_SECTION] = &parseFunctionSection,
 	[WASM_TABLE_SECTION] = &parseTableSection,
 	[WASM_MEMORY_SECTION] = &parseMemorySection,
-	[WASM_GLOBAL_SECTION] = &parseSection,
+	[WASM_GLOBAL_SECTION] = &parseGlobalSection,
 	[WASM_EXPORT_SECTION] = &parseExportSection,
 	[WASM_START_SECTION] = &parseStartSection,
 	[WASM_ELEMENT_SECTION] = &parseSection,
-	[WASM_CODE_SECTION] = &parseSection,
-	[WASM_DATA_SECTION] = &parseSection,
+	[WASM_CODE_SECTION] = &parseCodeSection,
+	[WASM_DATA_SECTION] = &parseDataSection,
 	[WASM_MAX_SECTION] = &internal_error
 };
