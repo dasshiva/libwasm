@@ -1,3 +1,4 @@
+#include "libwasm.h"
 #include <section.h>
 #include <read_utils.h>
 #include <stdlib.h>
@@ -28,14 +29,14 @@ void* internal_error(void* arg) {
  * read more bytes through the fetchXXX() methods
  */
 
-#define CHECK_IF_VALID_VALTYPE(x) ((x) <= 0x7F && (x) >= 0x7C)
+#define CHECK_IF_VALID_VALTYPE(x) (((x) >= 0x7C) && ((x) <= 0x7F))
 
 void* parseSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
-	reader.size = params->size;
+	reader.size = params->size + params->offset + 1;
 	return NULL;
 }
 
@@ -45,7 +46,7 @@ void* parseTypeSection(void* arg) {
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
-	reader.size = params->size;
+	reader.size = params->size + params->offset + 1;
 
 	uint32_t size = fetchU32(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);
@@ -53,41 +54,70 @@ void* parseTypeSection(void* arg) {
 	params->section->name = "Type";
 	params->section->hash = hash("Type");
 	params->section->types = malloc(sizeof(struct TypeSectionType) * size);
-	printf("Here");
+	params->section->flags = size;
+
 	for (int i = 0; i < size; i++) {
 		uint8_t rd = fetchRawU8(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
 		if (rd != 0x60)
 			return ((void*) WASM_INVALID_FUNCTYPE);
 
-		uint32_t retlen = fetchU32(&reader);
-		CHECK_IF_FILE_TRUNCATED(reader);
-		if (retlen != 1) 
-			return ((void*) WASM_UNSUPPORTED_MULTIVALUE_FUNC);
-
-		uint8_t rtype = fetchRawU8(&reader);
-		CHECK_IF_FILE_TRUNCATED(reader);
-		if (CHECK_IF_VALID_VALTYPE(rtype))
-                        return ((void*) WASM_INVALID_TYPEVAL);
-
 		uint32_t plen = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
-		if (plen > 255)
-			return ((void*) WASM_TOO_MANY_PARAMS);
+		if (plen) {	
+			if (plen > 255)
+				return ((void*) WASM_TOO_MANY_PARAMS);
+			
+			params->section->types[i].paramsLen = plen;
+			params->section->types[i].params = malloc(sizeof(uint8_t) * plen);
+			for (int j = 0; j < plen; j++) {
+				params->section->types[i].params[j] = fetchRawU8(&reader);
+				CHECK_IF_FILE_TRUNCATED(reader);
+				if (!CHECK_IF_VALID_VALTYPE(params->section->types[i].params[j])) {
+					return ((void*) WASM_INVALID_TYPEVAL);
+				}
+			}
+		}
+		else {
+			params->section->types[i].paramsLen = 0;
+			params->section->types[i].params = NULL;
+		}
 
-		params->section->types[i].ret = rtype;
-		params->section->types[i].paramsLen = plen;
-		params->section->types[i].params = malloc(sizeof(uint8_t) * plen);
-		for (int j = 0; j < plen; j++) {
-			params->section->types[i].params[j] = fetchRawU8(&reader);
+		uint32_t retlen = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+		if (retlen > 1) 
+			return ((void*) WASM_UNSUPPORTED_MULTIVALUE_FUNC);
+
+		if (retlen) {
+			uint8_t rtype = fetchRawU8(&reader);
 			CHECK_IF_FILE_TRUNCATED(reader);
-			if (CHECK_IF_VALID_VALTYPE(params->section->types[i].params[j]))
-                        	return ((void*) WASM_INVALID_TYPEVAL);
+			if (!(CHECK_IF_VALID_VALTYPE(rtype))) 
+                return ((void*) WASM_INVALID_TYPEVAL);
+			
+			params->section->types[i].ret = rtype;
+		}
+		else {
+			params->section->types[i].ret = 0;
 		}
 
 	}
 
-	if (reader.offset != reader.size) 
+	for (int i = 0; i < size; i++) {
+		struct TypeSectionType ty = params->section->types[i];
+		if (ty.ret) {
+			printf("Returns = 0x%x\n", ty.ret);
+		}
+
+		if (ty.params) {
+			printf("Paramters = ");
+			for (int j = 0; j < ty.paramsLen; j++) {
+				printf("0x%x ", ty.params[j]);
+			}
+			printf("\n");
+		}
+	}
+
+	if (reader.offset + 1 != reader.size) 
 		return ((void*) WASM_TRAILING_BYTES);
 
 	return NULL;
