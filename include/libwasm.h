@@ -144,7 +144,8 @@ typedef struct Table Memory;
 
 struct GlobalSectionGlobal {
 	uint8_t* expr;
-}
+	uint16_t flags;
+};
 
 typedef struct GlobalSectionGlobal Global;
 
