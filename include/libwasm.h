@@ -200,4 +200,6 @@ struct Section {
 	uint32_t       flags;
 };
 
+int validateModule(struct WasmModule* module);
+
 #endif

@@ -25,6 +25,8 @@ int main(int argc, const char* argv[]) {
             return 1;
         }
         
+        Module* mod = getModuleFromReader(&reader);
+        validateModule(mod);
         destroyReader(&reader);
 
         argv++;
