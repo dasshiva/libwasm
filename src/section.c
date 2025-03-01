@@ -31,6 +31,34 @@ void* internal_error(void* arg) {
  * read more bytes through the fetchXXX() methods
  */
 
+ /*
+ * NOTE: __ALL__ uses of fetchXXX() __MUST__
+ * be protected with a call to CHECK_IF_FILE_TRUNCATED
+ * Otherwise attackers get a chance to break the parser by promising data to
+ * be of one size and sneaking data of another size into the file 
+ * causing out of bounds reads and other associated errors.
+ *
+ * Special care to be taken when using memcpy: 
+ * Before calling memcpy use an if(...) to see if there's actually
+ * as much data available that you are planning to copy. Do not at any 
+ * point assume that CHECK_IF_FILE_TRUNCATED protects memcpy too.
+ * It doesn't. 
+ *
+ * REMEMBER: All file data present as reader->_data is untrusted
+ * and can contain maliciously generated data attempting to bypass
+ * security checks. Keep this in mind when writing code to support
+ * other types of sections. 
+ * I cannot stress this point enough. DO NOT TRUST reader->_data BLINDLY.
+ *
+ * The current implementation parses code following the WebAssembly MVP
+ * with some exceptions namely:
+ * 1) the initialisation code for elements in global/data/element sections 
+ *  cannot be longer than 15 bytes.
+ * Deviation from spec: The spec does not enforce a limit for such code
+ * 2) a single function may not take more than 255 parameters
+ * Deviation from spec: The spec does not enforce a strict limit on method
+ * parameters allowing them to be upto 2^32 - 1.
+ */
 #define CHECK_IF_VALID_VALTYPE(x) (((x) >= 0x7C) && ((x) <= 0x7F))
 
 void* parseCustomSection(void* arg) {
@@ -55,15 +83,13 @@ void* parseTypeSection(void* arg) {
 
 	params->section->name = "Type";
 	params->section->hash = hash("Type");
+	params->section->flags = size;
 	if (!size) {
-		params->section->flags = 0;
 		params->section->custom = NULL;
 		return NULL;
 	}
 
 	params->section->types = malloc(sizeof(struct TypeSectionType) * size);
-	params->section->flags = size;
-
 	for (int i = 0; i < size; i++) {
 		uint8_t rd = fetchRawU8(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
@@ -154,23 +180,24 @@ void* parseImportSection(void* arg) {
 
 	for (int i = 0; i < size; i++) {
 		uint32_t modlen = fetchU32(&reader) + 1; // space for null
-                if (!modlen)
-                        return ((void*) WASM_EMPTY_NAME);
-                CHECK_IF_FILE_TRUNCATED(reader);
+        if (!modlen)
+            return ((void*) WASM_EMPTY_NAME);
+        CHECK_IF_FILE_TRUNCATED(reader);
 
 		if (reader.offset + modlen - 1>= reader.size) 
 			return ((void*) WASM_TRUNCATED_SECTION);
 
-                params->section->imports[i].module = malloc(sizeof(const char*) * modlen);
-                memcpy(params->section->imports[i].module, (uint8_t*)reader._data + reader.offset, modlen);
-                params->section->imports[i].module[modlen - 1] = '\0';
-                params->section->imports[i].hashModule = hash(params->section->imports[i].module);
-                skip(&reader, modlen - 1);
+        params->section->imports[i].module = malloc(sizeof(const char*) * modlen);
+        memcpy(params->section->imports[i].module, (uint8_t*)reader._data + reader.offset, modlen);
+        params->section->imports[i].module[modlen - 1] = '\0';
+		params->section->imports[i].hashModule = hash(params->section->imports[i].module);
+        skip(&reader, modlen - 1);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
 		uint32_t namelen = fetchU32(&reader) + 1; // space for null
-                if (!namelen)                                                                       return ((void*) WASM_EMPTY_NAME);
-                CHECK_IF_FILE_TRUNCATED(reader);
+        if (!namelen)                                                                       
+			return ((void*) WASM_EMPTY_NAME);
+        CHECK_IF_FILE_TRUNCATED(reader);
 
 		if (reader.offset + namelen - 1 >= reader.size)
 			return ((void*) WASM_TRUNCATED_SECTION);
@@ -179,7 +206,7 @@ void* parseImportSection(void* arg) {
 		memcpy(params->section->imports[i].name, (uint8_t*)reader._data + reader.offset, namelen);
 		params->section->imports[i].name[namelen - 1] = '\0';
 		params->section->imports[i].hashName = hash(params->section->imports[i].name);
-                skip(&reader, namelen - 1);
+        skip(&reader, namelen - 1);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
 		params->section->imports[i].type = fetchRawU8(&reader);
@@ -401,7 +428,7 @@ void* parseStartSection(void* arg) {
 	return NULL;
 }
 
-static const uint8_t maxInitExprSize = 15; // Largest size of 'init' for Global sections
+static const uint8_t maxInitExprSize = 15; // Largest size of 'init' for Global/data/element sections
 
 void* parseGlobalSection(void* arg) {
 	struct ParseSectionParams* params = arg;
@@ -415,14 +442,13 @@ void* parseGlobalSection(void* arg) {
 
 	params->section->name = "Global";
 	params->section->hash = hash("Global");
+	params->section->flags = size;
 
 	if (!size) {
-		params->section->flags = 0;
 		params->section->custom = NULL;
 		return NULL;
 	} 
 
-	params->section->flags = size;
 	params->section->globals = malloc(sizeof(struct GlobalSectionGlobal) * size);
 
 	for (int i = 0; i < size; i++) {
@@ -453,6 +479,7 @@ void* parseGlobalSection(void* arg) {
 		params->section->globals[i].expr = malloc(sizeof(uint8_t) * initSize);
 		memcpy(params->section->globals[i].expr, (uint8_t*)reader._data + offset, initSize);
 		skip(&reader, initSize);
+		CHECK_IF_FILE_TRUNCATED(reader);
 	}
 
 	/*
@@ -516,6 +543,9 @@ void* parseDataSection(void* arg) {
 		CHECK_IF_FILE_TRUNCATED(reader);
 		params->section->data[i].len = dataSize;
 		params->section->data[i].bytes = malloc(sizeof(uint8_t) * dataSize);
+		if (reader.offset + dataSize >= reader.size)
+			return ((void*) WASM_TRUNCATED_SECTION);
+
 		memcpy(params->section->data[i].bytes, (uint8_t*)reader._data + reader.offset, dataSize);
 		skip(&reader, dataSize);
 		CHECK_IF_FILE_TRUNCATED(reader);
@@ -592,6 +622,8 @@ void* parseCodeSection(void* arg) {
 
 		params->section->code[i].codeSize = codeSize;
 		params->section->code[i].expr = malloc(sizeof(uint8_t) * codeSize);
+		if (reader.offset + codeSize >= reader.size) 
+			return ((void*) WASM_TRUNCATED_SECTION);
 		memcpy(params->section->code[i].expr, (uint8_t*)reader._data + reader.offset, codeSize);
 
 		if (params->section->code[i].expr[codeSize - 1] != 0xB) 
@@ -662,7 +694,6 @@ void* parseElementSection(void* arg) {
 		CHECK_IF_FILE_TRUNCATED(reader);
 		params->section->element[i].len = dataSize;
 		params->section->element[i].funcidx = malloc(sizeof(uint32_t) * dataSize); // allocate more than needed
-		
 		for (int i = 0; i < dataSize; i++) {
 			params->section->element[i].funcidx[i] = fetchU32(&reader);
 			CHECK_IF_FILE_TRUNCATED(reader);
