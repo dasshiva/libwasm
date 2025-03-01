@@ -395,7 +395,9 @@ void* parseStartSection(void* arg) {
 	params->section->name = "Start";
 	params->section->hash = hash("Start");
 
-	printf("Start function  = %ld\n", params->section->start);
+	//printf("Start function  = %ld\n", params->section->start);
+	if (reader.offset + 1 != reader.size)                              
+		return ((void*) WASM_TRAILING_BYTES);
 	return NULL;
 }
 

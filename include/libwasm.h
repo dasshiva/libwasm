@@ -139,7 +139,14 @@ struct Table {
 	uint32_t max;
 };
 
-typedef struct Table table;
+typedef struct Table Table;
+typedef struct Table Memory;
+
+struct GlobalSectionGlobal {
+	uint8_t* expr;
+}
+
+typedef struct GlobalSectionGlobal Global;
 
 struct Section {
 	const char*    name;
@@ -152,6 +159,7 @@ struct Section {
 		struct Table* memory; // Table and memory sections are functionally almost the same
 		struct ExportSectionExport* exports;
 		uint64_t  start; 
+		struct GlobalSectionGlobal* globals;
 		void*  custom;  // Unknown custom section
 	};
 	uint32_t       flags;
