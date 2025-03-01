@@ -30,7 +30,9 @@ static const char* error_to_string[] = {
     [WASM_INVALID_EXPR] = "Code expression must end with 0x0B(end)\n",
     [WASM_INIT_TOO_LONG] = "Init expression for global/data sections cannot be longer than 15 bytes\n",
     [WASM_TOO_MANY_MEMORIES] = "Each module can have only 1 memory\n",
-    [WASM_INVALID_GLOBAL_MUTABILITY] = "Globals can have mutability flags equal to 0 or 1\n"
+    [WASM_INVALID_GLOBAL_MUTABILITY] = "Globals can have mutability flags equal to 0 or 1\n",
+    [WASM_INVALID_MEMORY_INDEX] = "Only memory index 0 can be referenced from data sections\n",
+    [WASM_INVALID_TABLE_INDEX] = "Only table index 0 can be referenced from element sections\n"
 };
 
 

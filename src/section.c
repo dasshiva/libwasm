@@ -422,7 +422,9 @@ void* parseGlobalSection(void* arg) {
 		return NULL;
 	} 
 
+	params->section->flags = size;
 	params->section->globals = malloc(sizeof(struct GlobalSectionGlobal) * size);
+
 	for (int i = 0; i < size; i++) {
 		params->section->globals[i].valtype = fetchRawU8(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
@@ -472,6 +474,57 @@ void* parseDataSection(void* arg) {
 	reader._data = params->data;
 	reader.offset = params->offset;
 	reader.size = params->size + params->offset + 1;
+
+	uint32_t size = fetchU32(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	params->section->name = "Data";
+	params->section->hash = hash("Data");
+	params->section->flags = size;
+
+	if (!size) {
+		params->section->custom = NULL;
+		return NULL;
+	}
+
+	params->section->data = malloc(sizeof(struct DataSectionData) * size);
+	for (int i = 0; i < size; i++) {
+		if (fetchU32(&reader) != 0) 
+			return ((void*) WASM_INVALID_MEMORY_INDEX);
+		CHECK_IF_FILE_TRUNCATED(reader);
+
+		uint32_t off = reader.offset;
+		uint8_t exprSize = 1;
+		while (1) {
+			if (exprSize >= maxInitExprSize) 
+				return ((void*) WASM_INIT_TOO_LONG);
+
+			if (fetchRawU8(&reader) == 0xB)
+				break;
+			CHECK_IF_FILE_TRUNCATED(reader);
+			
+			exprSize += 1;
+		}
+
+		reader.offset = off;
+		params->section->data[i].expr = malloc(sizeof(uint8_t) * exprSize);
+		memcpy(params->section->data[i].expr, (uint8_t*)reader._data + reader.offset, exprSize);
+		skip(&reader, exprSize);
+		CHECK_IF_FILE_TRUNCATED(reader);
+
+		uint32_t dataSize = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+		params->section->data[i].len = dataSize;
+		params->section->data[i].bytes = malloc(sizeof(uint8_t) * dataSize);
+		memcpy(params->section->data[i].bytes, (uint8_t*)reader._data + reader.offset, dataSize);
+		skip(&reader, dataSize);
+		CHECK_IF_FILE_TRUNCATED(reader);
+
+	}
+
+	if (reader.offset + 1 != reader.size)
+		return ((void*) WASM_TRAILING_BYTES);
+
 	return NULL;
 }
 
@@ -493,9 +546,13 @@ void* parseCodeSection(void* arg) {
 		return NULL;
 	}
 
+	params->section->flags = size;
 	params->section->code = malloc(sizeof(struct CodeSectionCode) * size);
+
 	for (int i = 0; i < size; i++) {
 		uint32_t codeSize = fetchU32(&reader); // codesize includes the size of locals and function code
+		uint32_t copySize = codeSize; // Keep a copy of codeSize later used for skipping to the next section
+
 		CHECK_IF_FILE_TRUNCATED(reader);
 		uint32_t poff = reader.offset;
 		uint32_t paramtypes = fetchU32(&reader);
@@ -524,27 +581,32 @@ void* parseCodeSection(void* arg) {
 				}
 			}
 
-			codeSize -= (reader.offset - poff) + 1;
+			codeSize -= (reader.offset - poff);
 		}
 
 		else {
 			params->section->code[i].localSize = 0;
 			params->section->code[i].locals = NULL;
+			codeSize -= 1; // 0 is always 1 byte long 
 		}
 
 		params->section->code[i].codeSize = codeSize;
 		params->section->code[i].expr = malloc(sizeof(uint8_t) * codeSize);
 		memcpy(params->section->code[i].expr, (uint8_t*)reader._data + reader.offset, codeSize);
 
-		if (params->section->code[i].expr[codeSize - 1] != 0xB) {
-			printf("0x%x\n", (params->section->code[i].expr[codeSize]));
+		if (params->section->code[i].expr[codeSize - 1] != 0xB) 
 			return ((void*) WASM_INVALID_EXPR);
-		}
+		
+
+		reader.offset = poff;
+		skip(&reader, copySize);
+		CHECK_IF_FILE_TRUNCATED(reader);
 	}
 
+	/*
 	for (int i = 0; i < size; i++) {
 		printf("codeSize = 0x%x locals = 0x%x\n", params->section->code[i].codeSize, params->section->code[i].localSize);
-	}
+	} */
 
 	if (reader.offset + 1 != reader.size)
 		return ((void*) WASM_TRAILING_BYTES);
@@ -558,6 +620,57 @@ void* parseElementSection(void* arg) {
 	reader._data = params->data;
 	reader.offset = params->offset;
 	reader.size = params->size + params->offset + 1;
+
+	uint32_t size = fetchU32(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	params->section->name = "Element";
+	params->section->hash = hash("Element");
+	params->section->flags = size;
+
+	if (!size) {
+		params->section->custom = NULL;
+		return NULL;
+	}
+
+	params->section->element = malloc(sizeof(struct ElementSectionElement) * size);
+	for (int i = 0; i < size; i++) {
+		if (fetchU32(&reader) != 0) 
+			return ((void*) WASM_INVALID_TABLE_INDEX);
+		CHECK_IF_FILE_TRUNCATED(reader);
+
+		uint32_t off = reader.offset;
+		uint8_t exprSize = 1;
+		while (1) {
+			if (exprSize >= maxInitExprSize) 
+				return ((void*) WASM_INIT_TOO_LONG);
+
+			if (fetchRawU8(&reader) == 0xB)
+				break;
+			CHECK_IF_FILE_TRUNCATED(reader);
+			
+			exprSize += 1;
+		}
+
+		reader.offset = off;
+		params->section->element[i].expr = malloc(sizeof(uint8_t) * exprSize);
+		memcpy(params->section->element[i].expr, (uint8_t*)reader._data + reader.offset, exprSize);
+		skip(&reader, exprSize);
+		CHECK_IF_FILE_TRUNCATED(reader);
+
+		uint32_t dataSize = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+		params->section->element[i].len = dataSize;
+		params->section->element[i].funcidx = malloc(sizeof(uint32_t) * dataSize); // allocate more than needed
+		
+		for (int i = 0; i < dataSize; i++) {
+			params->section->element[i].funcidx[i] = fetchU32(&reader);
+			CHECK_IF_FILE_TRUNCATED(reader);
+		}
+	}
+
+	if (reader.offset + 1 != reader.size)
+		return ((void*) WASM_TRAILING_BYTES);
 
 	return NULL;
 }

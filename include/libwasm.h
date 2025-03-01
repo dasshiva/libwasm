@@ -96,6 +96,8 @@ enum {
 	WASM_INVALID_GLOBAL_MUTABILITY,
 	WASM_INIT_TOO_LONG,
 	WASM_INVALID_EXPR,
+	WASM_INVALID_MEMORY_INDEX,
+	WASM_INVALID_TABLE_INDEX,
 	WASM_MAX_ERROR,
 };
 
@@ -148,7 +150,7 @@ typedef struct Table Memory;
 struct GlobalSectionGlobal {
 	uint8_t* expr;
 	uint8_t  mut;
-	uint8_t valtype;
+	uint8_t  valtype;
 };
 
 typedef struct GlobalSectionGlobal Global;
@@ -161,6 +163,22 @@ struct CodeSectionCode {
 };
 
 typedef struct CodeSectionCode Code;
+
+struct DataSectionData {
+	uint8_t* expr;
+	uint8_t* bytes;
+	uint32_t len;
+};
+
+typedef struct DataSectionData Data;
+
+struct ElementSectionElement {
+	uint8_t*   expr;
+	uint32_t*  funcidx;
+	uint32_t   len;
+};
+
+typedef struct ElementSectionElement Element;
 
 struct Section {
 	const char*    name;
@@ -175,6 +193,8 @@ struct Section {
 		uint64_t  start; 
 		struct GlobalSectionGlobal* globals;
 		struct CodeSectionCode*  code;
+		struct DataSectionData*  data;
+		struct ElementSectionElement* element;
 		void*  custom;  // Unknown custom section
 	};
 	uint32_t       flags;
