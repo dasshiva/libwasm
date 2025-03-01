@@ -401,12 +401,68 @@ void* parseStartSection(void* arg) {
 	return NULL;
 }
 
+static const uint8_t maxInitExprSize = 15; // Largest size of 'init' for Global sections
+
 void* parseGlobalSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
 	reader.size = params->size + params->offset + 1;
+
+	uint32_t size = fetchU32(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	params->section->name = "Global";
+	params->section->hash = hash("Global");
+
+	if (!size) {
+		params->section->flags = 0;
+		params->section->custom = NULL;
+		return NULL;
+	} 
+
+	params->section->globals = malloc(sizeof(struct GlobalSectionGlobal) * size);
+	for (int i = 0; i < size; i++) {
+		params->section->globals[i].valtype = fetchRawU8(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+		if (!CHECK_IF_VALID_VALTYPE(params->section->globals[i].valtype)) 
+			return ((void*) WASM_INVALID_TYPEVAL);
+
+		params->section->globals[i].mut = fetchRawU8(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+		if (params->section->globals[i].mut > 1) 
+			return ((void*) WASM_INVALID_GLOBAL_MUTABILITY);
+
+		uint32_t offset = reader.offset;
+		int initSize = 1;
+		while (1) {
+			if (initSize > maxInitExprSize) 
+				return ((void*) WASM_INIT_TOO_LONG);
+
+			uint8_t op = fetchRawU8(&reader);
+			CHECK_IF_FILE_TRUNCATED(reader);
+			if (op == 0x0B) 
+				break;
+			initSize++;
+		}
+
+		reader.offset = offset;
+		params->section->globals[i].expr = malloc(sizeof(uint8_t) * initSize);
+		memcpy(params->section->globals[i].expr, (uint8_t*)reader._data + offset, initSize);
+		skip(&reader, initSize);
+	}
+
+	/*
+	for (int i = 0; i < size; i++) {
+		printf("Mutable = %d Type = %d\n", params->section->globals[i].mut, params->section->globals[i].valtype);
+	}
+	*/
+	
+
+	if (reader.offset + 1 != reader.size)                              
+		return ((void*) WASM_TRAILING_BYTES);
+
 	return NULL;
 }
 
@@ -425,6 +481,33 @@ void* parseCodeSection(void* arg) {
 	reader._data = params->data;
 	reader.offset = params->offset;
 	reader.size = params->size + params->offset + 1;
+
+	uint32_t size = fetchU32(&reader);
+	CHECK_IF_FILE_TRUNCATED(reader);
+
+	params->section->name = "Code";
+	params->section->hash = hash("Code");
+	if (!size) {
+		params->section->custom = NULL;
+		params->section->flags = 0;
+		return NULL;
+	}
+
+	params->section->code = malloc(sizeof(struct CodeSectionCode) * size);
+	for (int i = 0; i < size; i++) {
+		uint32_t codeSize = fetchU32(&reader); // codesize includes the size of locals and function code
+		CHECK_IF_FILE_TRUNCATED(reader);
+
+		uint32_t paramtypes = fetchU32(&reader);
+		if (paramtypes) {
+			
+		}
+
+		else {
+			params->section->code[i].localSize = 0;
+			params->section->code[i].locals = NULL;
+		}
+	}
 	return NULL;
 }
 
@@ -434,6 +517,7 @@ void* parseElementSection(void* arg) {
 	reader._data = params->data;
 	reader.offset = params->offset;
 	reader.size = params->size + params->offset + 1;
+
 	return NULL;
 }
 

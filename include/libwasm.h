@@ -93,6 +93,8 @@ enum {
 	WASM_TOO_MANY_TABLES,
 	WASM_INVALID_TABLE_ELEMENT_TYPE,
 	WASM_TOO_MANY_MEMORIES,
+	WASM_INVALID_GLOBAL_MUTABILITY,
+	WASM_INIT_TOO_LONG,
 	WASM_MAX_ERROR,
 };
 
@@ -144,10 +146,20 @@ typedef struct Table Memory;
 
 struct GlobalSectionGlobal {
 	uint8_t* expr;
-	uint16_t flags;
+	uint8_t  mut;
+	uint8_t valtype;
 };
 
 typedef struct GlobalSectionGlobal Global;
+
+struct CodeSectionCode {
+	uint32_t codeSize;
+	uint32_t localSize;
+	uint8_t* locals;
+	uint8_t* expr;
+};
+
+typedef struct CodeSectionCode Code;
 
 struct Section {
 	const char*    name;
@@ -161,6 +173,7 @@ struct Section {
 		struct ExportSectionExport* exports;
 		uint64_t  start; 
 		struct GlobalSectionGlobal* globals;
+		struct CodeSectionCode*  code;
 		void*  custom;  // Unknown custom section
 	};
 	uint32_t       flags;
