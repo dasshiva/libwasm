@@ -149,7 +149,9 @@ int parseModule(struct WasmModuleReader *reader) {
             .size = section_offsets[i].size,
             .section = &reader->thisModule->sections[i]
         };
-        parseSectionList[section_offsets[i].type](&param);
+        void* n = parseSectionList[section_offsets[i].type](&param);
+	if (n) 
+		return (long)n;
     }
     
     reader->offset = section_start_offset;

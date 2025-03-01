@@ -27,6 +27,10 @@ static const char* error_to_string[] = {
     [WASM_INVALID_IMPORT_TYPE] = "Import type is not between 0 and 3\n",
     [WASM_TOO_MANY_TABLES] = "Each module may have only 1 table\n",
     [WASM_INVALID_TABLE_ELEMENT_TYPE] = "Tables can only be of function type (0x70)\n",
+    [WASM_INVALID_EXPR] = "Code expression must end with 0x0B(end)\n",
+    [WASM_INIT_TOO_LONG] = "Init expression for global/data sections cannot be longer than 15 bytes\n",
+    [WASM_TOO_MANY_MEMORIES] = "Each module can have only 1 memory\n",
+    [WASM_INVALID_GLOBAL_MUTABILITY] = "Globals can have mutability flags equal to 0 or 1\n"
 };
 
 

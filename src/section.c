@@ -497,17 +497,58 @@ void* parseCodeSection(void* arg) {
 	for (int i = 0; i < size; i++) {
 		uint32_t codeSize = fetchU32(&reader); // codesize includes the size of locals and function code
 		CHECK_IF_FILE_TRUNCATED(reader);
-
+		uint32_t poff = reader.offset;
 		uint32_t paramtypes = fetchU32(&reader);
 		if (paramtypes) {
-			
+			uint32_t off = reader.offset;
+			uint32_t paramslen = 0;
+			for (int j = 0; j < paramtypes; j++) {
+				paramslen += fetchU32(&reader);
+				CHECK_IF_FILE_TRUNCATED(reader);
+				fetchRawU8(&reader);
+				CHECK_IF_FILE_TRUNCATED(reader);
+			}
+
+			params->section->code[i].localSize = paramslen;
+			reader.offset = off;
+			params->section->code[i].locals = malloc(sizeof(uint8_t) * paramslen);
+			uint32_t cur = 0;
+			for (int j = 0; j < paramtypes; j++) {
+				uint32_t n = fetchU32(&reader);
+				CHECK_IF_FILE_TRUNCATED(reader);
+				uint8_t type = fetchRawU8(&reader);
+				CHECK_IF_FILE_TRUNCATED(reader);
+
+				for (int k = 0; k < n; k++, cur++) {
+					params->section->code[i].locals[k] = type;
+				}
+			}
+
+			codeSize -= (reader.offset - poff) + 1;
 		}
 
 		else {
 			params->section->code[i].localSize = 0;
 			params->section->code[i].locals = NULL;
 		}
+
+		params->section->code[i].codeSize = codeSize;
+		params->section->code[i].expr = malloc(sizeof(uint8_t) * codeSize);
+		memcpy(params->section->code[i].expr, (uint8_t*)reader._data + reader.offset, codeSize);
+
+		if (params->section->code[i].expr[codeSize - 1] != 0xB) {
+			printf("0x%x\n", (params->section->code[i].expr[codeSize]));
+			return ((void*) WASM_INVALID_EXPR);
+		}
 	}
+
+	for (int i = 0; i < size; i++) {
+		printf("codeSize = 0x%x locals = 0x%x\n", params->section->code[i].codeSize, params->section->code[i].localSize);
+	}
+
+	if (reader.offset + 1 != reader.size)
+		return ((void*) WASM_TRAILING_BYTES);
+
 	return NULL;
 }
 
