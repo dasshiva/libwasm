@@ -1,5 +1,5 @@
 #include <libwasm.h>
-#include <stdio.h>
+#include <stdlib.h>
 
 static int compactIntoFunction();
 static int compactIntoMemory();
@@ -42,7 +42,22 @@ int validateModule(struct WasmModule *module) {
 	    if (function.functions[i] >= tysize)
 		    return WASM_INVALID_TYPE_INDEX;
     }
-    
+
+    // We now have the full trio needed to represent a function:
+    // the function's type and its code and local variables
+    // To make it easier to access the function as a whole entity,
+    // we will group all the units of a function into one structure
+
+    module->functions = malloc(sizeof(Function) * function.flags);
+    for (int i = 0; i < function.flags; i++) {
+	    module->functions[i].signature = type.types[function.functions[i]];
+	    module->functions[i].code = code.code[function.functions[i]];
+    }
+
+    // We don't need these anymore
+    free(&module->sections[fnidx]);
+    free(&module->sections[codeidx]);
+    free(&module->sections[typeidx]);
     return WASM_SUCCESS;
 }
 

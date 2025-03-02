@@ -19,7 +19,7 @@ struct WasmModuleWriter {
 	struct WasmModule* thisModule;
 	struct WasmConfig* config;
 	uint32_t           size;
-    uint32_t           offset;
+    	uint32_t           offset;
 	void*              _data;
 };
 
@@ -33,11 +33,13 @@ struct WasmConfig {
 };
 
 struct Section;
+struct Function;
 struct WasmModule {
-	const char*       name;
-	uint64_t          hash;
-	uint64_t          flags;
-	struct   Section* sections;
+	const char*        name;
+	uint64_t           hash;
+	uint64_t           flags;
+	struct   Section*  sections;
+	struct   Function* functions;
 };
 
 typedef struct WasmModuleReader Reader;
@@ -191,6 +193,11 @@ struct ElementSectionElement {
 
 typedef struct ElementSectionElement Element;
 
+typedef struct Function {
+	struct TypeSectionType signature;
+	struct CodeSectionCode code;
+} Function;
+
 struct Section {
 	const char*    name;
 	uint64_t       hash;
@@ -209,6 +216,7 @@ struct Section {
 		void*  custom;  // Unknown custom section
 	};
 	uint32_t       flags;
+
 };
 
 int validateModule(struct WasmModule* module);
