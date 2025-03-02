@@ -82,7 +82,7 @@ void* parseTypeSection(void* arg) {
 	CHECK_IF_FILE_TRUNCATED(reader);
 
 	params->section->name = "Type";
-	params->section->hash = hash("Type");
+	params->section->hash = WASM_HASH_Type;
 	params->section->flags = size;
 	if (!size) {
 		params->section->custom = NULL;
@@ -168,7 +168,7 @@ void* parseImportSection(void* arg) {
 	CHECK_IF_FILE_TRUNCATED(reader);
 
 	params->section->name = "Import";
-	params->section->hash = hash("Import");
+	params->section->hash = WASM_HASH_Import;
 	if (!size) {
 		params->section->flags = 0;
 		params->section->custom = NULL;
@@ -244,7 +244,7 @@ void* parseFunctionSection(void* arg) {
 		return NULL;
 	
 	params->section->name = "Function";
-	params->section->hash = hash("Function");
+	params->section->hash = WASM_HASH_Import;
 	params->section->flags = size;
 	params->section->functions = malloc(sizeof(uint32_t) * size);
 
@@ -284,7 +284,7 @@ void* parseTableSection(void* arg) {
 
 	params->section->flags = 1;
 	params->section->name = "Table";
-	params->section->hash = hash("Table");
+	params->section->hash = WASM_HASH_Table;
 	params->section->table = malloc(sizeof(struct Table));
 
 	uint8_t limtype = fetchRawU8(&reader);
@@ -325,7 +325,7 @@ void* parseMemorySection(void* arg) {
 
 	params->section->flags = 1;
 	params->section->name = "Memory";
-	params->section->hash = hash("Memory");
+	params->section->hash = WASM_HASH_Memory;
 	params->section->memory = malloc(sizeof(struct Table));
 
 	uint8_t limtype = fetchRawU8(&reader);
@@ -360,7 +360,7 @@ void* parseExportSection(void* arg) {
 	CHECK_IF_FILE_TRUNCATED(reader);
 
 	params->section->name = "Export";
-	params->section->hash = hash("Export");
+	params->section->hash = WASM_HASH_Export;
 	if (!size) {
 		params->section->flags = 0;
 		params->section->custom = NULL;
@@ -420,7 +420,7 @@ void* parseStartSection(void* arg) {
 	params->section->start = fn;
 	params->section->flags = 0;
 	params->section->name = "Start";
-	params->section->hash = hash("Start");
+	params->section->hash = WASM_HASH_Start;
 
 	//printf("Start function  = %ld\n", params->section->start);
 	if (reader.offset + 1 != reader.size)                              
@@ -441,7 +441,7 @@ void* parseGlobalSection(void* arg) {
 	CHECK_IF_FILE_TRUNCATED(reader);
 
 	params->section->name = "Global";
-	params->section->hash = hash("Global");
+	params->section->hash = WASM_HASH_Global;
 	params->section->flags = size;
 
 	if (!size) {
@@ -506,7 +506,7 @@ void* parseDataSection(void* arg) {
 	CHECK_IF_FILE_TRUNCATED(reader);
 
 	params->section->name = "Data";
-	params->section->hash = hash("Data");
+	params->section->hash = WASM_HASH_Data;
 	params->section->flags = size;
 
 	if (!size) {
@@ -569,7 +569,7 @@ void* parseCodeSection(void* arg) {
 	CHECK_IF_FILE_TRUNCATED(reader);
 
 	params->section->name = "Code";
-	params->section->hash = hash("Code");
+	params->section->hash = WASM_HASH_Code;
 	if (!size) {
 		params->section->custom = NULL;
 		params->section->flags = 0;
@@ -657,7 +657,7 @@ void* parseElementSection(void* arg) {
 	CHECK_IF_FILE_TRUNCATED(reader);
 
 	params->section->name = "Element";
-	params->section->hash = hash("Element");
+	params->section->hash = WASM_HASH_Element;
 	params->section->flags = size;
 
 	if (!size) {
