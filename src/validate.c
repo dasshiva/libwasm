@@ -1,3 +1,4 @@
+#include "precompiled-hashes.h"
 #include <libwasm.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,12 +49,60 @@ int validateModule(struct WasmModule *module) {
     // To make it easier to access the function as a whole entity,
     // we will group all the units of a function into one structure
 
-    module->functions = malloc(sizeof(Function) * function.flags);
-    for (int i = 0; i < function.flags; i++) {
-	    module->functions[i].signature = type.types[function.functions[i]];
-	    module->functions[i].code = code.code[function.functions[i]];
+    // We also need to include the imports as functions
+    int impidx = findSectionByHash(module, WASM_HASH_Import);
+    int imported = 0;
+    if (impidx != -1) 
+        imported = module->sections[impidx].flags;
+
+    module->functions = malloc(sizeof(Function) * (function.flags + imported));
+    for (int i = 0; i < imported; i++) {
+        module->functions[i].signature = &module->sections[typeidx].types[i];
+        module->functions[i].code = NULL;
+        module->functions[i].hash = 0;
+        module->functions[i].name = NULL;
     }
-    
+
+    for (int i = imported; i < function.flags + imported; i++) {
+	    module->functions[i].signature = &module->sections[typeidx].types[i];
+	    module->functions[i].code = &module->sections[codeidx].code[i];
+        module->functions[i].hash = 0;
+        module->functions[i].name = NULL;
+    }
+
+    module->functions->nfuncs = function.flags + imported;
+
+    int nameidx = findSectionByHash(module, WASM_HASH_name);
+    if (nameidx != -1) {
+        struct Section n = module->sections[nameidx];
+        if (n.names->moduleName) {
+            module->name = n.names->moduleName;
+            module->hash = hash(n.names->moduleName);
+        }
+
+        int valid = 1;
+        if (n.names->indexes && n.names->functionNames) {
+            for (uint32_t i = 0; i < n.flags; i++) {
+                if (n.names->indexes[i] >= (function.flags + imported)) {
+                    valid = 0;
+                    break;
+                }
+            }
+        }
+
+        if (valid) {
+            for (int i = 0; i < (function.flags + imported); i++) {
+                module->functions[i].name = n.names->functionNames[i];
+            }
+            
+        }
+        else {
+            // Do nothing as custom sections' contents cannot invalidate
+            // module content
+        }
+
+    }
+
     return WASM_SUCCESS;
 }
 

@@ -118,6 +118,7 @@ const char* errString(int err);
 
 struct TypeSectionType {
 	uint8_t* params;
+	uint32_t idx;
 	uint8_t  ret;
 	uint8_t  paramsLen;
 };
@@ -194,8 +195,11 @@ struct ElementSectionElement {
 typedef struct ElementSectionElement Element;
 
 typedef struct Function {
-	struct TypeSectionType signature;
-	struct CodeSectionCode code;
+	char*    name;
+	uint64_t hash;
+	uint64_t nfuncs;
+	struct TypeSectionType* signature;
+	struct CodeSectionCode* code;
 } Function;
 
 struct NameSectionName {

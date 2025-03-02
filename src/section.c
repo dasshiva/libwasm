@@ -178,6 +178,7 @@ static void* parseTypeSection(void* arg) {
 
 	params->section->types = malloc(sizeof(struct TypeSectionType) * size);
 	for (int i = 0; i < size; i++) {
+		params->section->types[i].idx = i;
 		uint8_t rd = fetchRawU8(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
 		if (rd != 0x60)

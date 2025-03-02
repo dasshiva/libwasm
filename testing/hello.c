@@ -1,3 +1,4 @@
+extern int call_me();
 long go_far(int a, int b, long c, long d, double e) {
 	return a + b + c + d;
 }
@@ -10,6 +11,7 @@ const char* name = "Hello";
 int main();
 void _start() __attribute__((export_name("_start"))) {
 	go_far(1, 1, 3, 3, 1.0f);
+	call_me();
 	main();
 }
 
