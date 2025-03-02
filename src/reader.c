@@ -128,7 +128,6 @@ int parseModule(struct WasmModuleReader *reader) {
     reader->offset = section_start_offset;
 
     // Now record the section offsets and their sizes
-    // This allows us to parse each section parallely yielding better performance
     for(int i = 0; i < nsecs; i++) {
         uint8_t id = fetchRawU8(reader);
         uint32_t sec_length = fetchU32(reader);
@@ -150,8 +149,8 @@ int parseModule(struct WasmModuleReader *reader) {
             .section = &reader->thisModule->sections[i]
         };
         void* n = parseSectionList[section_offsets[i].type](&param);
-	if (n) 
-		return (long)n;
+	    if (n) 
+		    return (long)n;
     }
     
     reader->offset = section_start_offset;

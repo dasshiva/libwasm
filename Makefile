@@ -11,25 +11,31 @@ sample: main.c lib/libwasm.so $(headers)
 lib/libwasm.so:  $(objects)
 	$(CC) -shared -fPIC -o $@ $^
 
-objs/%.o: src/%.c $(headers)
-	$(CC) -c -o $@ $< -Iinclude -fPIC
+objs/%.o: src/%.c $(headers) include/precompiled-hashes.h
+	$(CC) -c -o $@ $< -Iinclude -fPIC -Igenerated
 
-debug: main.c lib/libdebugwasm.so $(headers)
+debug: main.c lib/libdebugwasm.so $(headers) 
 	$(CC) $< -Llib -ldebugwasm -o $@ -Wl,-rpath=./lib -Iinclude -g
 
 lib/libdebugwasm.so: $(debug_objects)
 	$(CC) -shared -fPIC -o $@ $^ -g
 
-objs-debug/%.o: src/%.c $(headers)
-	$(CC) -c -o $@ $< -Iinclude -fPIC -g
+objs-debug/%.o: src/%.c $(headers) include/precompiled-hashes.h
+	$(CC) -c -o $@ $< -Iinclude -fPIC -g -Igenerated
 
-release: main.c lib/libwasmopt.so $(headers)                                
+release: main.c lib/libwasmopt.so $(headers)                             
 	$(CC) $< -Llib -lwasmopt -o $@ -Wl,-rpath=./lib -Iinclude -flto=full
 
-lib/libwasmopt.so:  $(optimised_objects)
+lib/libwasmopt.so:  $(optimised_objects) 
 	$(CC) -shared -fPIC -o $@ $^ -flto=full
 
-objs-opt/%.o: src/%.c $(headers)
-	$(CC) -c -o $@ $< -Iinclude -fPIC -O3 -flto=full
+objs-opt/%.o: src/%.c $(headers) include/precompiled-hashes.h
+	$(CC) -c -o $@ $< -Iinclude -fPIC -O3 -flto=full -Igenerated
+
+include/precompiled-hashes.h: src/builtin-sections.inc lib/genhash
+	lib/genhash $< $@
+
+lib/genhash: utils/hash.c
+	$(CC) $^ -o $@
 
 .SECONDARY: objects debug_objects

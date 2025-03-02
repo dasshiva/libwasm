@@ -2,6 +2,7 @@
 #define __LIBWASM_H__
 
 #include <stdint.h>
+#include "precompiled-hashes.h"
 
 struct WasmModule;
 struct WasmConfig;
