@@ -32,12 +32,14 @@ static const char* error_to_string[] = {
     [WASM_TOO_MANY_MEMORIES] = "Each module can have only 1 memory\n",
     [WASM_INVALID_GLOBAL_MUTABILITY] = "Globals can have mutability flags equal to 0 or 1\n",
     [WASM_INVALID_MEMORY_INDEX] = "Only memory index 0 can be referenced from data sections\n",
-    [WASM_INVALID_TABLE_INDEX] = "Only table index 0 can be referenced from element sections\n"
+    [WASM_INVALID_TABLE_INDEX] = "Only table index 0 can be referenced from element sections\n",
+    [WASM_NO_TYPE] = "Function and/or code section is present but types secrion is absent\n",
+    [WASM_FUNCTION_CODE_MISMATCH] = "Number of function indices does not match with number of code bodies\n"
 };
 
 
 const char* errString(int err) {
-    if (err >= WASM_MAX_SECTION_ERROR || err < 0)
+    if (err >= WASM_MAX_VALIDATION_ERROR || err < 0)
         return "Unknown error code\n";
 
     return error_to_string[err];

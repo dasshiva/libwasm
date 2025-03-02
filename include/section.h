@@ -20,11 +20,6 @@ enum {
 };
 
 #define CHECK_ERROR_CODE(ptr) (ptr)
-enum {
-	WASM_TRUNCATED_SECTION = WASM_MAX_ERROR + 1,
-	WASM_MAX_SECTION_ERROR
-};
-
 
 struct ParseSectionParams {
 	uint8_t*        data;

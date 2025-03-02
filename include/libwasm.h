@@ -69,6 +69,7 @@ void   destroyWriter(struct WasmModuleWriter* obj);
 #define WASM_MAGIC   0x6D736100
 #define WASM_VERSION 0x00000001
 
+// codes returned by parseModule
 enum {
 	WASM_SUCCESS = 0,
 	WASM_OUT_OF_MEMORY,
@@ -99,7 +100,15 @@ enum {
 	WASM_INVALID_EXPR,
 	WASM_INVALID_MEMORY_INDEX,
 	WASM_INVALID_TABLE_INDEX,
+        WASM_TRUNCATED_SECTION,
 	WASM_MAX_ERROR,
+};
+
+// Codes returned by validateModule
+enum {
+	WASM_NO_TYPE = WASM_MAX_ERROR + 1,
+	WASM_FUNCTION_CODE_MISMATCH,
+	WASM_MAX_VALIDATION_ERROR
 };
 
 const char* errString(int err);
