@@ -57,7 +57,7 @@ int validateModule(struct WasmModule *module) {
     // We don't need these anymore
     free(&module->sections[fnidx]);
     free(&module->sections[codeidx]);
-    free(&module->sections[typeidx]);
+    //free(&module->sections[typeidx]);
     return WASM_SUCCESS;
 }
 
