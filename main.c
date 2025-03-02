@@ -15,18 +15,22 @@ int main(int argc, const char* argv[]) {
         config.name = *argv;
         int s = createReader(&reader, &config);
         if (s) {
-            printf("Error: %s", errString(s));
+            printf("Error: %s\n", errString(s));
             return 1;
         }
 
         s = parseModule(&reader);
         if (s) {
-            printf("Error: %s", errString(s));
+            printf("Error: %s\n", errString(s));
             return 1;
         }
         
         Module* mod = getModuleFromReader(&reader);
-        validateModule(mod);
+        s = validateModule(mod);
+	if (s != WASM_SUCCESS) {
+		printf("Error: %s\n", errString(s));                    
+		return 1;
+	}
         destroyReader(&reader);
 
         argv++;

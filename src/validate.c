@@ -28,9 +28,21 @@ int validateModule(struct WasmModule *module) {
     // Now see if function and code sections are equal in length
     struct Section function = module->sections[fnidx];
     struct Section code = module->sections[codeidx];
+    struct Section type = module->sections[typeidx];
 
     if (function.flags != code.flags)
 	    return WASM_FUNCTION_CODE_MISMATCH;
+
+    // Now we know our code and function sections match up so all code
+    // bodies are owned by a function
+    // Now see the if type indices used by the function section 
+    // are valid indices or not
+    uint32_t tysize = type.flags;
+    for (uint32_t i = 0; i < function.flags; i++) {
+	    if (function.functions[i] >= tysize)
+		    return WASM_INVALID_TYPE_INDEX;
+    }
+    
     return WASM_SUCCESS;
 }
 
