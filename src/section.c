@@ -1,4 +1,5 @@
 #include "libwasm.h"
+#include "precompiled-hashes.h"
 #include <section.h>
 #include <read_utils.h>
 #include <stdint.h>
@@ -61,16 +62,76 @@ void* internal_error(void* arg) {
  */
 #define CHECK_IF_VALID_VALTYPE(x) (((x) >= 0x7C) && ((x) <= 0x7F))
 
+static void* parseNameSection(struct WasmModuleReader reader, struct ParseSectionParams* params);
+
 void* parseCustomSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
 	reader.size = params->size + params->offset + 1;
+
+	uint32_t nameSize = fetchU32(&reader);
+	if (!nameSize) 
+		return ((void*) WASM_EMPTY_NAME);
+
+	if (nameSize + reader.offset >= reader.size) 
+		return ((void*) WASM_TRUNCATED_SECTION);
+
+	char* name = malloc(sizeof(char) * nameSize + 1);
+	memcpy(name, (uint8_t*)reader._data + reader.offset, nameSize);
+	skip(&reader, nameSize);
+	name[nameSize] = '\0';
+
+	uint64_t hashName = hash(name);
+	if (hashName == WASM_HASH_name) {
+		params->section->name = "name";
+		params->section->hash = WASM_HASH_name;
+		params->section->flags = 0;
+		return parseNameSection(reader, params);
+	}
 	return NULL;
 }
 
-void* parseTypeSection(void* arg) {
+static void* parseNameSection(struct WasmModuleReader reader, struct ParseSectionParams* params) {
+	// All subsections must occur only once and in order of increasing id
+	// Thererfore the first section will be the module name and the next
+	// one will be the function names
+	// We do not care about the rest for now
+	// Also we are not allowed to throw errors for invalid data in custom sections
+	// So simply return if anything is not right
+
+	uint8_t id = fetchRawU8(&reader);
+	if (!id) { // This is the module section
+		params->section->names = malloc(sizeof(struct NameSectionName));
+		fetchU32(&reader); // size of the module section immaterial to us as length of the string comes later
+
+		uint32_t size = fetchU32(&reader);
+		if (!size) 
+			return ((void*) WASM_EMPTY_NAME);
+		if (reader.offset + size >= reader.size)
+			return ((void*) WASM_TRUNCATED_SECTION);
+
+		params->section->names->moduleName = malloc(sizeof(char) * size + 1);
+		memcpy(params->section->names->moduleName, (uint8_t*)reader._data + reader.offset, size);
+		params->section->names->moduleName[size] = '\0';
+		printf("%s\n", params->section->names->moduleName); 
+	} 
+	else 
+		goto ret; 
+
+	id = fetchRawU8(&reader);
+	if (id == 1) {
+		
+	}
+
+	// Ignore all other subsections till we add support for them
+
+ret:	
+	return NULL;
+}
+
+static void* parseTypeSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 
 	struct WasmModuleReader reader;
@@ -157,7 +218,7 @@ void* parseTypeSection(void* arg) {
 	return NULL;
 }
 
-void* parseImportSection(void* arg) {
+static void* parseImportSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -230,7 +291,7 @@ void* parseImportSection(void* arg) {
 	return NULL;
 }
 
-void* parseFunctionSection(void* arg) {
+static void* parseFunctionSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -264,7 +325,7 @@ void* parseFunctionSection(void* arg) {
 	return NULL;
 }
 
-void* parseTableSection(void* arg) {
+static void* parseTableSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -308,7 +369,7 @@ void* parseTableSection(void* arg) {
 	return NULL;
 }
 
-void* parseMemorySection(void* arg) {
+static void* parseMemorySection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -349,7 +410,7 @@ void* parseMemorySection(void* arg) {
 	return NULL;
 }
 
-void* parseExportSection(void* arg) {
+static void* parseExportSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -407,7 +468,7 @@ void* parseExportSection(void* arg) {
 	return NULL;
 }
 
-void* parseStartSection(void* arg) {
+static void* parseStartSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -430,7 +491,7 @@ void* parseStartSection(void* arg) {
 
 static const uint8_t maxInitExprSize = 15; // Largest size of 'init' for Global/data/element sections
 
-void* parseGlobalSection(void* arg) {
+static void* parseGlobalSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -495,7 +556,7 @@ void* parseGlobalSection(void* arg) {
 	return NULL;
 }
 
-void* parseDataSection(void* arg) {
+static void* parseDataSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -558,7 +619,7 @@ void* parseDataSection(void* arg) {
 	return NULL;
 }
 
-void* parseCodeSection(void* arg) {
+static void* parseCodeSection(void* arg) {
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -646,7 +707,7 @@ void* parseCodeSection(void* arg) {
 	return NULL;
 }
 
-void* parseElementSection(void* arg) {                                  
+static void* parseElementSection(void* arg) {                                  
 	struct ParseSectionParams* params = arg;
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -706,7 +767,7 @@ void* parseElementSection(void* arg) {
 	return NULL;
 }
 
-parseFnList parseSectionList[] = {
+const parseFnList parseSectionList[] = {
 	[WASM_CUSTOM_SECTION] = &parseCustomSection,
 	[WASM_TYPE_SECTION] = &parseTypeSection,
 	[WASM_IMPORT_SECTION] = &parseImportSection,

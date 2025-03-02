@@ -1,7 +1,7 @@
 #include <libwasm.h>
+#include <stdio.h>
 #include <stdlib.h>
 
-static int compactIntoFunction();
 static int compactIntoMemory();
 static int compactIntoTable();
 static int compactIntoImport();
@@ -53,30 +53,7 @@ int validateModule(struct WasmModule *module) {
 	    module->functions[i].signature = type.types[function.functions[i]];
 	    module->functions[i].code = code.code[function.functions[i]];
     }
-
-    // We don't need these anymore
-    free(&module->sections[fnidx]);
-    free(&module->sections[codeidx]);
-
+    
     return WASM_SUCCESS;
 }
 
-static int compactIntoFunction() {
-    return 1;
-}
-
-static int compactIntoMemory() {
-    return 1;
-}
-
-static int compactIntoTable() {
-    return 1;
-}
-
-static int compactIntoImport() {
-    return 1;
-}
-
-static int prepareValidatedModule() {
-    return 1;
-}

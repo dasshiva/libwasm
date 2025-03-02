@@ -30,5 +30,5 @@ struct ParseSectionParams {
 
 void* parseSection(void* section);
 typedef void* (*parseFnList)(void*);
-extern parseFnList parseSectionList[];
+extern const parseFnList parseSectionList[];
 #endif

@@ -1,6 +1,6 @@
 #ifndef __HASHES_H__
 #define __HASHES_H__
-#define WASM_HASH_Name (0xef49aec68fd1dc66UL)
+#define WASM_HASH_name (0xc4bcadba8e631b86UL)
 #define WASM_HASH_Type (0xd2223afb7d6b100dUL)
 #define WASM_HASH_Import (0x3914cb410fca44d4UL)
 #define WASM_HASH_Function (0x7da69ddbc0d4c69UL)

@@ -198,6 +198,13 @@ typedef struct Function {
 	struct CodeSectionCode code;
 } Function;
 
+struct NameSectionName {
+	char*  moduleName;
+	char** functionNames;
+};
+
+typedef struct NameSectionName Name;
+
 struct Section {
 	const char*    name;
 	uint64_t       hash;
@@ -213,6 +220,7 @@ struct Section {
 		struct CodeSectionCode*  code;
 		struct DataSectionData*  data;
 		struct ElementSectionElement* element;
+		struct NameSectionName*  names;
 		void*  custom;  // Unknown custom section
 	};
 	uint32_t       flags;
