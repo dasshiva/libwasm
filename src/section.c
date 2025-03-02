@@ -244,7 +244,7 @@ void* parseFunctionSection(void* arg) {
 		return NULL;
 	
 	params->section->name = "Function";
-	params->section->hash = WASM_HASH_Import;
+	params->section->hash = WASM_HASH_Function;
 	params->section->flags = size;
 	params->section->functions = malloc(sizeof(uint32_t) * size);
 

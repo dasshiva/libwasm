@@ -202,5 +202,5 @@ struct Section {
 };
 
 int validateModule(struct WasmModule* module);
-
+int findSectionByHash(struct WasmModule* mod, const uint64_t hash);
 #endif

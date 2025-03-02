@@ -75,6 +75,8 @@ struct section_offset {
 };
 
 int parseModule(struct WasmModuleReader *reader) {
+    reader->thisModule->flags = 0;
+    
     uint32_t magic = fetchRawU32(reader);
     if (magic != WASM_MAGIC) 
         return WASM_FILE_INVALID_MAGIC;
