@@ -88,7 +88,8 @@ void* parseCustomSection(void* arg) {
 		params->section->name = "name";
 		params->section->hash = WASM_HASH_name;
 		params->section->flags = 0;
-		return parseNameSection(reader, params);
+		parseNameSection(reader, params);
+		return NULL; // Ignore the return value
 	}
 	return NULL;
 }
@@ -115,14 +116,39 @@ static void* parseNameSection(struct WasmModuleReader reader, struct ParseSectio
 		params->section->names->moduleName = malloc(sizeof(char) * size + 1);
 		memcpy(params->section->names->moduleName, (uint8_t*)reader._data + reader.offset, size);
 		params->section->names->moduleName[size] = '\0';
-		printf("%s\n", params->section->names->moduleName); 
+		skip(&reader, size);
+		CHECK_IF_FILE_TRUNCATED(reader);
 	} 
 	else 
 		goto ret; 
 
 	id = fetchRawU8(&reader);
 	if (id == 1) {
-		
+		uint32_t secn_size = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+
+		uint32_t npairs = fetchU32(&reader);
+		CHECK_IF_FILE_TRUNCATED(reader);
+
+		params->section->flags = npairs;
+		params->section->names->indexes = malloc(sizeof(uint32_t) * npairs);
+		params->section->names->functionNames = malloc(sizeof(char*) * npairs);
+		for (uint32_t i = 0; i < npairs; i++) {
+			params->section->names->indexes[i] = fetchU32(&reader);
+			CHECK_IF_FILE_TRUNCATED(reader);
+
+			uint32_t nameSize = fetchU32(&reader);
+			CHECK_IF_FILE_TRUNCATED(reader);
+			if (reader.offset + nameSize >= reader.size) 
+				return ((void*) WASM_TRUNCATED_SECTION);
+
+			params->section->names->functionNames[i] = malloc(sizeof(char) * nameSize + 1);
+			memcpy(params->section->names->functionNames[i], (uint8_t*)reader._data + reader.offset, nameSize);
+			params->section->names->functionNames[i][nameSize] = '\0';
+			skip(&reader, nameSize);
+			CHECK_IF_FILE_TRUNCATED(reader);
+		}
+
 	}
 
 	// Ignore all other subsections till we add support for them

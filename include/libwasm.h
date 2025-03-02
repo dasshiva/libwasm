@@ -199,8 +199,9 @@ typedef struct Function {
 } Function;
 
 struct NameSectionName {
-	char*  moduleName;
-	char** functionNames;
+	char*     moduleName;
+	uint32_t* indexes;
+	char**    functionNames;
 };
 
 typedef struct NameSectionName Name;
