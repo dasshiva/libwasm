@@ -10,7 +10,7 @@ enum {
 	ERROR,
 };
 
-#ifdef DEBUG
+#ifdef YDEBUG
 
 #define info(...) logStdout(__FILE__, __LINE__, __func__,  INFO, 1, __VA_ARGS__)
 #define warn(...) logStdout(__FILE__, __LINE__, __func__,  WARNING, 1, __VA_ARGS__)
@@ -32,8 +32,8 @@ enum {
 #undef info
 #endif
 // Both of these must not be called directly, use the macros
-void logStdout(const char* file, const char* line, const char* func, int level, int trace, const char* format, ...);
+void logStdout(const char* file, int line, const char* func, int level, int trace, const char* format, ...);
 
-void logToFile(const char* file, const char* line, const char* func, int level, int trace, FILE* dest, const char* format, ...);
+void logToFile(const char* file, int line, const char* func, int level, int trace, FILE* dest, const char* format, ...);
 
 #endif

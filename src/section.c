@@ -1,4 +1,5 @@
 #include "libwasm.h"
+#include <log.h>
 #include "precompiled-hashes.h"
 #include <section.h>
 #include <read_utils.h>
@@ -72,16 +73,24 @@ void* parseCustomSection(void* arg) {
 	reader.size = params->size + params->offset + 1;
 
 	uint32_t nameSize = fetchU32(&reader);
-	if (!nameSize) 
-		return ((void*) WASM_EMPTY_NAME);
+	debug("Custom section name size = %d", nameSize);
 
-	if (nameSize + reader.offset >= reader.size) 
+	if (!nameSize) {
+		error("Custom section cannot be empty");
+		return ((void*) WASM_EMPTY_NAME);
+	}
+
+	if (nameSize + reader.offset >= reader.size) {
+		error("Custom section is truncated");
 		return ((void*) WASM_TRUNCATED_SECTION);
+	}
 
 	char* name = malloc(sizeof(char) * nameSize + 1);
 	memcpy(name, (uint8_t*)reader._data + reader.offset, nameSize);
 	skip(&reader, nameSize);
 	name[nameSize] = '\0';
+
+	debug("Found custom section \'%s\'", name);
 
 	uint64_t hashName = hash(name);
 	if (hashName == WASM_HASH_name) {
@@ -92,6 +101,7 @@ void* parseCustomSection(void* arg) {
 		return NULL; // Ignore the return value
 	}
 	else {
+		warn("Unsupported custom section \'%s\'", name);
 		params->section->name = name;
 		params->section->hash = hashName;
 	}
@@ -105,6 +115,7 @@ static void* parseNameSection(struct WasmModuleReader reader, struct ParseSectio
 	// We do not care about the rest for now
 	// Also we are not allowed to throw errors for invalid data in custom sections
 	// So simply return if anything is not right
+	debug("Parsing section '\'name\'");
 
 	uint8_t id = fetchRawU8(&reader);
 	if (!id) { // This is the module section
@@ -112,26 +123,39 @@ static void* parseNameSection(struct WasmModuleReader reader, struct ParseSectio
 		fetchU32(&reader); // size of the module section immaterial to us as length of the string comes later
 
 		uint32_t size = fetchU32(&reader);
-		if (!size) 
-			return ((void*) WASM_EMPTY_NAME);
-		if (reader.offset + size >= reader.size)
-			return ((void*) WASM_TRUNCATED_SECTION);
+		debug("Module name size = %d", size);
+
+		if (!size) {
+			warn("Module name is empty");
+			return NULL;
+		}
+
+		if (reader.offset + size >= reader.size) {
+			warn("Name section is truncated");
+			return NULL;
+		}
 
 		params->section->names->moduleName = malloc(sizeof(char) * size + 1);
 		memcpy(params->section->names->moduleName, (uint8_t*)reader._data + reader.offset, size);
 		params->section->names->moduleName[size] = '\0';
+
+		warn("Module name = %s", params->section->names->moduleName);
 		skip(&reader, size);
 		CHECK_IF_FILE_TRUNCATED(reader);
 	} 
-	else 
+	else {
+		warn("Expected subsection id 0 but got %d, bailing", id);
 		goto ret; 
+	}
 
 	id = fetchRawU8(&reader);
 	if (id == 1) {
 		uint32_t secn_size = fetchU32(&reader);
+		debug("Function subsection size = %u", secn_size);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
 		uint32_t npairs = fetchU32(&reader);
+		debug("Number of pairs in subsection = %u", npairs);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
 		params->section->flags = npairs;
@@ -143,17 +167,26 @@ static void* parseNameSection(struct WasmModuleReader reader, struct ParseSectio
 
 			uint32_t nameSize = fetchU32(&reader);
 			CHECK_IF_FILE_TRUNCATED(reader);
-			if (reader.offset + nameSize >= reader.size) 
-				return ((void*) WASM_TRUNCATED_SECTION);
+			if (reader.offset + nameSize >= reader.size) {
+				warn("Truncated name section");
+				return NULL;
+			}
 
 			params->section->names->functionNames[i] = malloc(sizeof(char) * nameSize + 1);
 			memcpy(params->section->names->functionNames[i], (uint8_t*)reader._data + reader.offset, nameSize);
 			params->section->names->functionNames[i][nameSize] = '\0';
 			skip(&reader, nameSize);
 			CHECK_IF_FILE_TRUNCATED(reader);
+
+			debug("Id[%u] = %s", i, params->section->names->functionNames[i]);
 		}
 
 	}
+	else 
+		warn("Expected subsection id 1 but got %d, bailing", id);
+
+	warn("All other subsection id's are skipped");
+	
 
 	// Ignore all other subsections till we add support for them
 
