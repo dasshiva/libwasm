@@ -9,6 +9,7 @@ int go(const char* c) {
 	return 1;
 }
 
+__attribute__((visibility("default")))
 const char* name = "Hello";
 int main();
 void _start() __attribute__((export_name("_start"))) {

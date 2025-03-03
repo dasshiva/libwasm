@@ -42,6 +42,7 @@ struct WasmModule {
 	const char*                   name;
 	uint64_t                      hash;
 	uint64_t                      flags;
+	uint64_t                      nglobals;
 	struct   Section*             sections;
 	struct   Function*            functions;
 	struct   GlobalSectionGlobal* globals;

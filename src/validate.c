@@ -116,7 +116,8 @@ int validateModule(struct WasmModule *module) {
     module->memories->init = (dataidx == -1) ? NULL : module->sections[dataidx].data;
 
     int globalidx = findSectionByHash(module, WASM_HASH_Global);
-    module->globals = (dataidx == -1) ? NULL : module->sections[globalidx].globals;
+    module->globals = (globalidx == -1) ? NULL : module->sections[globalidx].globals;
+    module->nglobals = (globalidx == -1) ? 0 : module->sections[globalidx].flags;
     return WASM_SUCCESS;
 }
 
