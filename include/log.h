@@ -21,8 +21,8 @@ enum {
 
 #define debug(...)   
 #define info(...) 
-#define warn(...) logStdout(NULL, NULL, NULL, WARNING, 0, __VA_ARGS__)
-#define error(...) logStdout(NULL, NULL, NULL, ERROR, 0, __VA_ARGS__)
+#define warn(...) logStdout(NULL, 0, NULL, WARNING, 0, __VA_ARGS__)
+#define error(...) logStdout(NULL, 0, NULL, ERROR, 0, __VA_ARGS__)
 #endif
 
 #ifdef SUPPRESS_ALL_MESSAGES

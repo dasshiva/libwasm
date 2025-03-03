@@ -10,7 +10,7 @@
 
 #define  CHECK_IF_FILE_TRUNCATED(file) { \
 	if (file.offset == UINT32_MAX) { \
-		return ((void*) WASM_TRUNCATED_SECTION); \
+		return WASM_TRUNCATED_SECTION; \
     } \
 }
 
@@ -63,10 +63,9 @@ void* internal_error(void* arg) {
  */
 #define CHECK_IF_VALID_VALTYPE(x) (((x) >= 0x7C) && ((x) <= 0x7F))
 
-static void* parseNameSection(struct WasmModuleReader reader, struct ParseSectionParams* params);
+static int parseNameSection(struct WasmModuleReader reader, struct ParseSectionParams* params);
 
-void* parseCustomSection(void* arg) {
-	struct ParseSectionParams* params = arg;
+int parseCustomSection(struct ParseSectionParams* params) {
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
@@ -77,12 +76,12 @@ void* parseCustomSection(void* arg) {
 
 	if (!nameSize) {
 		error("Custom section cannot be empty");
-		return ((void*) WASM_EMPTY_NAME);
+		return WASM_EMPTY_NAME;
 	}
 
 	if (nameSize + reader.offset >= reader.size) {
 		error("Custom section is truncated");
-		return ((void*) WASM_TRUNCATED_SECTION);
+		return WASM_TRUNCATED_SECTION;
 	}
 
 	char* name = malloc(sizeof(char) * nameSize + 1);
@@ -98,17 +97,18 @@ void* parseCustomSection(void* arg) {
 		params->section->hash = WASM_HASH_name;
 		params->section->flags = 0;
 		parseNameSection(reader, params);
-		return NULL; // Ignore the return value
+		return 0; // Ignore the return value
 	}
 	else {
 		warn("Unsupported custom section \'%s\'", name);
 		params->section->name = name;
 		params->section->hash = hashName;
 	}
-	return NULL;
+
+	return WASM_SUCCESS;
 }
 
-static void* parseNameSection(struct WasmModuleReader reader, struct ParseSectionParams* params) {
+static int parseNameSection(struct WasmModuleReader reader, struct ParseSectionParams* params) {
 	// All subsections must occur only once and in order of increasing id
 	// Thererfore the first section will be the module name and the next
 	// one will be the function names
@@ -127,12 +127,12 @@ static void* parseNameSection(struct WasmModuleReader reader, struct ParseSectio
 
 		if (!size) {
 			warn("Module name is empty");
-			return NULL;
+			return WASM_SUCCESS;
 		}
 
 		if (reader.offset + size >= reader.size) {
 			warn("Name section is truncated");
-			return NULL;
+			return WASM_SUCCESS;
 		}
 
 		params->section->names->moduleName = malloc(sizeof(char) * size + 1);
@@ -169,7 +169,7 @@ static void* parseNameSection(struct WasmModuleReader reader, struct ParseSectio
 			CHECK_IF_FILE_TRUNCATED(reader);
 			if (reader.offset + nameSize >= reader.size) {
 				warn("Truncated name section");
-				return NULL;
+				return WASM_SUCCESS;;
 			}
 
 			params->section->names->functionNames[i] = malloc(sizeof(char) * nameSize + 1);
@@ -191,11 +191,11 @@ static void* parseNameSection(struct WasmModuleReader reader, struct ParseSectio
 	// Ignore all other subsections till we add support for them
 
 ret:	
-	return NULL;
+	return WASM_SUCCESS;
 }
 
-static void* parseTypeSection(void* arg) {
-	struct ParseSectionParams* params = arg;
+static int parseTypeSection(struct ParseSectionParams* params) {
+	debug("Parsing type section");
 
 	struct WasmModuleReader reader;
 	reader._data = params->data;
@@ -204,13 +204,15 @@ static void* parseTypeSection(void* arg) {
 
 	uint32_t size = fetchU32(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);
+	debug("Number of types = %u", size);
 
 	params->section->name = "Type";
 	params->section->hash = WASM_HASH_Type;
 	params->section->flags = size;
 	if (!size) {
+		warn("Type section is present but empty");
 		params->section->custom = NULL;
-		return NULL;
+		return WASM_SUCCESS;
 	}
 
 	params->section->types = malloc(sizeof(struct TypeSectionType) * size);
@@ -218,14 +220,19 @@ static void* parseTypeSection(void* arg) {
 		params->section->types[i].idx = i;
 		uint8_t rd = fetchRawU8(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
-		if (rd != 0x60)
-			return ((void*) WASM_INVALID_FUNCTYPE);
+		if (rd != 0x60) {
+			error("Function type does not start with 0x60");
+			return WASM_INVALID_FUNCTYPE;
+		}
 
 		uint32_t plen = fetchU32(&reader);
+		debug("Number of parameters = %u", plen);
 		CHECK_IF_FILE_TRUNCATED(reader);
 		if (plen) {	
-			if (plen > 255)
-				return ((void*) WASM_TOO_MANY_PARAMS);
+			if (plen > 255) {
+				error("Method has too many parameters");
+				return WASM_TOO_MANY_PARAMS;
+			}
 			
 			params->section->types[i].paramsLen = plen;
 			params->section->types[i].params = malloc(sizeof(uint8_t) * plen);
@@ -233,25 +240,32 @@ static void* parseTypeSection(void* arg) {
 				params->section->types[i].params[j] = fetchRawU8(&reader);
 				CHECK_IF_FILE_TRUNCATED(reader);
 				if (!CHECK_IF_VALID_VALTYPE(params->section->types[i].params[j])) {
-					return ((void*) WASM_INVALID_TYPEVAL);
+					error("Value type of function is not between 0x7F and 0x7C (only the MVP supported ones)");
+					return WASM_INVALID_TYPEVAL;
 				}
 			}
 		}
+
 		else {
 			params->section->types[i].paramsLen = 0;
 			params->section->types[i].params = NULL;
 		}
 
 		uint32_t retlen = fetchU32(&reader);
+		debug("Number of returns = %u", retlen);
 		CHECK_IF_FILE_TRUNCATED(reader);
-		if (retlen > 1) 
-			return ((void*) WASM_UNSUPPORTED_MULTIVALUE_FUNC);
+		if (retlen > 1) {
+			error("Function with more than 1 return type are unsupported");
+			return WASM_UNSUPPORTED_MULTIVALUE_FUNC;
+		}
 
 		if (retlen) {
 			uint8_t rtype = fetchRawU8(&reader);
 			CHECK_IF_FILE_TRUNCATED(reader);
-			if (!(CHECK_IF_VALID_VALTYPE(rtype))) 
-                return ((void*) WASM_INVALID_TYPEVAL);
+			if (!(CHECK_IF_VALID_VALTYPE(rtype))) {
+				error("Return type is not a valid valtype (not between 0x7F and 0x7C");
+                		return WASM_INVALID_TYPEVAL;
+			}
 			
 			params->section->types[i].ret = rtype;
 		}
@@ -276,14 +290,17 @@ static void* parseTypeSection(void* arg) {
 		}
 	}*/
 
-	if (reader.offset + 1 != reader.size) 
-		return ((void*) WASM_TRAILING_BYTES);
+	if (reader.offset + 1 != reader.size) {
+		error("Type section has stray bytes");
+		return WASM_TRAILING_BYTES;
+	}
 
-	return NULL;
+	return WASM_SUCCESS;
 }
 
-static void* parseImportSection(void* arg) {
-	struct ParseSectionParams* params = arg;
+static int parseImportSection(struct ParseSectionParams* params) {
+	debug("Parsing Import section");
+
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
@@ -291,82 +308,100 @@ static void* parseImportSection(void* arg) {
 
 	uint32_t size = fetchU32(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);
+	debug("Number of imports = %u", size);
 
 	params->section->name = "Import";
 	params->section->hash = WASM_HASH_Import;
+	params->section->flags = size;
+
 	if (!size) {
+		warn("Import section present but empty");
 		params->section->flags = 0;
 		params->section->custom = NULL;
-		return NULL;
+		return WASM_SUCCESS;
 	}
 
 	params->section->imports = malloc(sizeof(struct ImportSectionImport) * size);
-	params->section->flags = size;
 
 	for (int i = 0; i < size; i++) {
 		uint32_t modlen = fetchU32(&reader) + 1; // space for null
-        if (!modlen)
-            return ((void*) WASM_EMPTY_NAME);
-        CHECK_IF_FILE_TRUNCATED(reader);
+        	if (!modlen) {
+			error("Import module name is empty");
+            		return WASM_EMPTY_NAME;
+		}
 
-		if (reader.offset + modlen - 1>= reader.size) 
-			return ((void*) WASM_TRUNCATED_SECTION);
+        	CHECK_IF_FILE_TRUNCATED(reader);
 
-        params->section->imports[i].module = malloc(sizeof(const char*) * modlen);
-        memcpy(params->section->imports[i].module, (uint8_t*)reader._data + reader.offset, modlen);
-        params->section->imports[i].module[modlen - 1] = '\0';
+		if (reader.offset + modlen - 1>= reader.size) {
+			error("Import section is truncated");
+			return WASM_TRUNCATED_SECTION;
+		}
+
+        	params->section->imports[i].module = malloc(sizeof(const char*) * modlen);
+        	memcpy(params->section->imports[i].module, (uint8_t*)reader._data + reader.offset, modlen);
+        	params->section->imports[i].module[modlen - 1] = '\0';
 		params->section->imports[i].hashModule = hash(params->section->imports[i].module);
-        skip(&reader, modlen - 1);
+        	skip(&reader, modlen - 1);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
 		uint32_t namelen = fetchU32(&reader) + 1; // space for null
-        if (!namelen)                                                                       
-			return ((void*) WASM_EMPTY_NAME);
-        CHECK_IF_FILE_TRUNCATED(reader);
+		if (!(namelen - 1)) {
+			error("Importing entity's name is empty");
+			return WASM_EMPTY_NAME;
+		}
 
-		if (reader.offset + namelen - 1 >= reader.size)
-			return ((void*) WASM_TRUNCATED_SECTION);
+        	CHECK_IF_FILE_TRUNCATED(reader);
+
+		if (reader.offset + namelen - 1 >= reader.size) {
+			error("Import section is truncated");
+			return WASM_TRUNCATED_SECTION;
+		}
 
 		params->section->imports[i].name = malloc(sizeof(const char*) * namelen);
-		memcpy(params->section->imports[i].name, (uint8_t*)reader._data + reader.offset, namelen);
+		memcpy(params->section->imports[i].name, (uint8_t*)reader._data + reader.offset, namelen - 1);
 		params->section->imports[i].name[namelen - 1] = '\0';
 		params->section->imports[i].hashName = hash(params->section->imports[i].name);
-        skip(&reader, namelen - 1);
+
+        	skip(&reader, namelen - 1);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
 		params->section->imports[i].type = fetchRawU8(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
-		if (params->section->imports[i].type >= WASM_MAXTYPE)
-			return ((void*) WASM_INVALID_IMPORT_TYPE);
+		if (params->section->imports[i].type >= WASM_MAXTYPE) {
+			error("Not a valid import type");
+			return WASM_INVALID_IMPORT_TYPE;
+		}
 
 		params->section->imports[i].index = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
+
+		debug("Import[%d] %s.%s valtype = %u index = %u", i, params->section->imports[i].module, params->section->imports[i].name, params->section->imports[i].type, params->section->imports[i].name); 
 	}
 
-	/* for (int i = 0; i < size; i++) {
-		printf("%s.", params->section->imports[i].module);
-		printf("%s ", params->section->imports[i].name);
-		printf("Type = %d Index =%d\n", params->section->imports[i].type, params->section->imports[i].index);
-	} */
 
-	if (reader.offset + 1 != reader.size)                         
-		return ((void*) WASM_TRAILING_BYTES);
+	if (reader.offset + 1 != reader.size) {
+		error("Import Section has unclaimed bytes");
+		return WASM_TRAILING_BYTES;
+	}
 
-	return NULL;
+	return WASM_SUCCESS;
 }
 
-static void* parseFunctionSection(void* arg) {
-	struct ParseSectionParams* params = arg;
+static int parseFunctionSection(struct ParseSectionParams* params) {
+	debug("Parsing function section");
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
 	reader.size = params->size + params->offset + 1;
 
 	uint32_t size = fetchU32(&reader);
+	debug("Number of entries in function section = %u", size);
 	CHECK_IF_FILE_TRUNCATED(reader);
 
-	if (!size)
-		return NULL;
+	if (!size) {
+		warn("Function section present but empty");
+		return WASM_SUCCESS;
+	}
 	
 	params->section->name = "Function";
 	params->section->hash = WASM_HASH_Function;
@@ -376,21 +411,21 @@ static void* parseFunctionSection(void* arg) {
 	for (int i = 0; i < size; i++) {
 		params->section->functions[i] = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
+		debug("Function[%d] = %u", i, params->section->functions[i]);
 	}
 
-	/*
-	for (int i = 0; i < size; i++) {
-		printf("%d\n", params->section->functions[i]);
-	} */
 
-	if (reader.offset + 1 != reader.size)                         
-		return ((void*) WASM_TRAILING_BYTES);
+	if (reader.offset + 1 != reader.size) {
+		debug("Function Section has stray bytes");
+		return WASM_TRAILING_BYTES;
+	}
 
-	return NULL;
+	return WASM_SUCCESS;
 }
 
-static void* parseTableSection(void* arg) {
-	struct ParseSectionParams* params = arg;
+static int parseTableSection(struct ParseSectionParams* params) {
+	debug("Parsing table section");
+
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
@@ -398,12 +433,17 @@ static void* parseTableSection(void* arg) {
 
 	uint32_t size = fetchU32(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);
+	debug("Number of tables in table section = %u", size);
 
-	if (size != 1)
-		return ((void*) WASM_TOO_MANY_TABLES);
+	if (size != 1) {
+		error("Multiple tables in one module is unsupported");
+		return WASM_TOO_MANY_TABLES;
+	}
 
-	if (fetchU32(&reader) != 0x70)
-		return ((void*) WASM_INVALID_TABLE_ELEMENT_TYPE);
+	if (fetchU32(&reader) != 0x70) {
+		error("Tables can only have function refs (0x70)");
+		return WASM_INVALID_TABLE_ELEMENT_TYPE;
+	}
 
 	CHECK_IF_FILE_TRUNCATED(reader);
 
@@ -413,40 +453,49 @@ static void* parseTableSection(void* arg) {
 	params->section->table = malloc(sizeof(struct TableSectionTable));
 
 	uint8_t limtype = fetchRawU8(&reader);
+	debug("Limit type = %s", (limtype) ? "min-max" : "min");
 	CHECK_IF_FILE_TRUNCATED(reader);
 
 	if (limtype) {
 		params->section->table->min = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
+		debug("Table min size = %u", params->section->table->min);
 		params->section->table->max = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
+		debug("Table max size = %u", params->section->table->max);
 	}
 	else {
 		params->section->table->min = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
+		debug("Table min size = %u", params->section->table->min);
+
 		params->section->table->max = UINT32_MAX;
 	}
 
-	if (reader.offset + 1 != reader.size)                         
-		return ((void*) WASM_TRAILING_BYTES);
+	if (reader.offset + 1 != reader.size) {
+		error("Table Section has stray bytes");
+		return WASM_TRAILING_BYTES;
+	}
 
-	return NULL;
+	return WASM_SUCCESS;
 }
 
-static void* parseMemorySection(void* arg) {
-	struct ParseSectionParams* params = arg;
+static int parseMemorySection(struct ParseSectionParams* params) {
+	debug("Parsing memory section");
+
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
 	reader.size = params->size + params->offset + 1;
 
 	uint32_t size = fetchU32(&reader);
+	debug("Number of memories = %u");
 	CHECK_IF_FILE_TRUNCATED(reader);
 
-	if (size != 1)
-		return ((void*) WASM_TOO_MANY_MEMORIES);
-
-	CHECK_IF_FILE_TRUNCATED(reader);
+	if (size != 1) {
+		debug("Multi-memory is not supported");
+		return WASM_TOO_MANY_MEMORIES;
+	}
 
 	params->section->flags = 1;
 	params->section->name = "Memory";
@@ -455,23 +504,29 @@ static void* parseMemorySection(void* arg) {
 
 	uint8_t limtype = fetchRawU8(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);
+	debug("Limit type = %s", (limtype) ? "min-max" : "min");
 
 	if (limtype) {
 		params->section->memory->min = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
+		debug("Memory min size = %u", params->section->memory->min);
 		params->section->memory->max = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
+		debug("Memory max size = %u", params->section->memory->min);
 	}
 	else {
 		params->section->memory->min = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
+		debug("Memory min size = %u", params->section->memory->min);
 		params->section->memory->max = UINT32_MAX;
 	}
 
-	if (reader.offset + 1 != reader.size)                         
+	if (reader.offset + 1 != reader.size) {
+		debug("Memory section has stray bytes");
 		return ((void*) WASM_TRAILING_BYTES);
+	}
 
-	return NULL;
+	return WASM_SUCCESS;
 }
 
 static void* parseExportSection(void* arg) {
