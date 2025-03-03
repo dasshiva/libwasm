@@ -91,6 +91,10 @@ void* parseCustomSection(void* arg) {
 		parseNameSection(reader, params);
 		return NULL; // Ignore the return value
 	}
+	else {
+		params->section->name = name;
+		params->section->hash = hashName;
+	}
 	return NULL;
 }
 
