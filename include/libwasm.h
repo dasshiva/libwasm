@@ -34,12 +34,19 @@ struct WasmConfig {
 
 struct Section;
 struct Function;
+struct GlobalSectionGlobal;
+struct Table;
+struct Memory;
+
 struct WasmModule {
-	const char*        name;
-	uint64_t           hash;
-	uint64_t           flags;
-	struct   Section*  sections;
-	struct   Function* functions;
+	const char*                   name;
+	uint64_t                      hash;
+	uint64_t                      flags;
+	struct   Section*             sections;
+	struct   Function*            functions;
+	struct   GlobalSectionGlobal* globals;
+	struct   Table*               tables;
+	struct   Memory*              memories;
 };
 
 typedef struct WasmModuleReader Reader;
@@ -153,13 +160,11 @@ struct ExportSectionExport {
 };
 
 typedef struct ExportSectionExport Export;
-struct Table {
+struct TableSectionTable {
 	uint32_t min;
 	uint32_t max;
 };
 
-typedef struct Table Table;
-typedef struct Table Memory;
 
 struct GlobalSectionGlobal {
 	uint8_t* expr;
@@ -202,6 +207,16 @@ typedef struct Function {
 	struct CodeSectionCode* code;
 } Function;
 
+typedef struct Memory {
+	struct TableSectionTable*     memory;
+	struct DataSectionData*       init;
+} Memory;
+
+typedef struct Table {
+	struct TableSectionTable*     table;
+	struct ElementSectionElement* init;
+} Table;
+
 struct NameSectionName {
 	char*     moduleName;
 	uint32_t* indexes;
@@ -217,8 +232,8 @@ struct Section {
 		struct TypeSectionType* types;
 		struct ImportSectionImport* imports;
 		uint32_t* functions;
-		struct Table* table;
-		struct Table* memory; // Table and memory sections are functionally almost the same
+		struct TableSectionTable* table;
+		struct TableSectionTable* memory; // Table and memory sections are functionally almost the same
 		struct ExportSectionExport* exports;
 		uint64_t  start; 
 		struct GlobalSectionGlobal* globals;

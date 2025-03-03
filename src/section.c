@@ -377,7 +377,7 @@ static void* parseTableSection(void* arg) {
 	params->section->flags = 1;
 	params->section->name = "Table";
 	params->section->hash = WASM_HASH_Table;
-	params->section->table = malloc(sizeof(struct Table));
+	params->section->table = malloc(sizeof(struct TableSectionTable));
 
 	uint8_t limtype = fetchRawU8(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);
@@ -418,7 +418,7 @@ static void* parseMemorySection(void* arg) {
 	params->section->flags = 1;
 	params->section->name = "Memory";
 	params->section->hash = WASM_HASH_Memory;
-	params->section->memory = malloc(sizeof(struct Table));
+	params->section->memory = malloc(sizeof(struct TableSectionTable));
 
 	uint8_t limtype = fetchRawU8(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);

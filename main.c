@@ -26,11 +26,7 @@ int main(int argc, const char* argv[]) {
         }
         
         Module* mod = getModuleFromReader(&reader);
-        s = validateModule(mod);
-	if (s != WASM_SUCCESS) {
-		printf("Error: %s\n", errString(s));                    
-		return 1;
-	}
+        printf("Successfully loaded module = %s\n", mod->name);
         destroyReader(&reader);
 
         argv++;

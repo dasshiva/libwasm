@@ -103,6 +103,20 @@ int validateModule(struct WasmModule *module) {
 
     }
 
+    int tabidx = findSectionByHash(module, WASM_HASH_Table);
+    int elementidx = findSectionByHash(module, WASM_HASH_Element);
+    module->tables = malloc(sizeof(struct Table) * 1);
+    module->tables->table = (tabidx == -1) ? NULL : module->sections[tabidx].table;
+    module->tables->init = (elementidx == -1) ? NULL : module->sections[elementidx].element;
+
+    int memidx = findSectionByHash(module, WASM_HASH_Memory);
+    int dataidx = findSectionByHash(module, WASM_HASH_Data);
+    module->memories = malloc(sizeof(struct Memory) * 1);
+    module->memories->memory = (memidx == -1) ? NULL : module->sections[memidx].memory;
+    module->memories->init = (dataidx == -1) ? NULL : module->sections[dataidx].data;
+
+    int globalidx = findSectionByHash(module, WASM_HASH_Global);
+    module->globals = (dataidx == -1) ? NULL : module->sections[globalidx].globals;
     return WASM_SUCCESS;
 }
 

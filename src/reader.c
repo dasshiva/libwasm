@@ -157,7 +157,7 @@ int parseModule(struct WasmModuleReader *reader) {
     
     reader->offset = section_start_offset;
 
-    return WASM_SUCCESS;
+    return validateModule(reader->thisModule);
 }
 
 struct WasmModule* getModuleFromReader(struct WasmModuleReader* reader) {
