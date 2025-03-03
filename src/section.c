@@ -10,6 +10,7 @@
 
 #define  CHECK_IF_FILE_TRUNCATED(file) { \
 	if (file.offset == UINT32_MAX) { \
+		error("Truncated section"); \
 		return WASM_TRUNCATED_SECTION; \
     } \
 }
@@ -523,72 +524,79 @@ static int parseMemorySection(struct ParseSectionParams* params) {
 
 	if (reader.offset + 1 != reader.size) {
 		debug("Memory section has stray bytes");
-		return ((void*) WASM_TRAILING_BYTES);
+		return WASM_TRAILING_BYTES;
 	}
 
 	return WASM_SUCCESS;
 }
 
-static void* parseExportSection(void* arg) {
-	struct ParseSectionParams* params = arg;
+static int parseExportSection(struct ParseSectionParams* params) {
+	debug("Parsing export section");
+
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
 	reader.size = params->size + params->offset + 1;
 
-	uint32_t size = fetchU32(&reader);
+	uint32_t size = fetchU32(&reader);	
 	CHECK_IF_FILE_TRUNCATED(reader);
+	debug("Number of exports = %u", size);
 
 	params->section->name = "Export";
 	params->section->hash = WASM_HASH_Export;
+	params->section->flags = size;
+
 	if (!size) {
 		params->section->flags = 0;
 		params->section->custom = NULL;
-		return NULL;
+		return WASM_SUCCESS;
 	}
 
 	params->section->exports = malloc(sizeof(struct ExportSectionExport) * size);
-	params->section->flags = size;
 
 	for (int i = 0; i < size; i++) {
 		uint32_t namelen = fetchU32(&reader) + 1; // space for null
-            if (!namelen)                                                                       
-				return ((void*) WASM_EMPTY_NAME);
-        CHECK_IF_FILE_TRUNCATED(reader);
+            	if (!namelen) { 
+			debug("Export name is empty");
+			return WASM_EMPTY_NAME;
+		}
 
-		if (reader.offset + namelen - 1 >= reader.size)
-			return ((void*) WASM_TRUNCATED_SECTION);
+	        CHECK_IF_FILE_TRUNCATED(reader);
+
+		if (reader.offset + namelen - 1 >= reader.size) {
+			debug("Truncated section");
+			return WASM_TRUNCATED_SECTION;
+		}
 
 		params->section->exports[i].name = malloc(sizeof(const char*) * namelen);
 		memcpy(params->section->exports[i].name, (uint8_t*)reader._data + reader.offset, namelen);
 		params->section->exports[i].name[namelen - 1] = '\0';
 		params->section->exports[i].hashName = hash(params->section->exports[i].name);
-        skip(&reader, namelen - 1);
+        	skip(&reader, namelen - 1);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
 		params->section->exports[i].type = fetchRawU8(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
-		if (params->section->exports[i].type >= WASM_MAXTYPE)
-			return ((void*) WASM_INVALID_IMPORT_TYPE);
+		if (params->section->exports[i].type >= WASM_MAXTYPE) {
+			error("Export type is not valid must be between 0 and 3");
+			return WASM_INVALID_IMPORT_TYPE;
+		}
 
 		params->section->exports[i].index = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
+
+		debug("Export[%d] %s 0x%x", i, params->section->exports[i].name, params->section->exports[i].index);
 	}
 
-	/*
-		for (int i = 0; i < size; i++) {
-			printf("%s ", params->section->exports[i].name);
-			printf("Type = %d Index =%d\n", params->section->exports[i].type, params->section->exports[i].index);
-		}
-	*/
-	if (reader.offset + 1 != reader.size)                         
-		return ((void*) WASM_TRAILING_BYTES);
+	if (reader.offset + 1 != reader.size) {
+		error("Export section has stray bytes");
+		return WASM_TRAILING_BYTES;
+	}
 
-	return NULL;
+	return WASM_SUCCESS;
 }
 
-static void* parseStartSection(void* arg) {
-	struct ParseSectionParams* params = arg;
+static int parseStartSection(struct ParseSectionParams* params) {
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
@@ -596,16 +604,19 @@ static void* parseStartSection(void* arg) {
 
 	uint32_t fn = fetchU32(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);
+	debug("Start function index = %u", fn);
 
 	params->section->start = fn;
 	params->section->flags = 0;
 	params->section->name = "Start";
 	params->section->hash = WASM_HASH_Start;
 
-	//printf("Start function  = %ld\n", params->section->start);
-	if (reader.offset + 1 != reader.size)                              
-		return ((void*) WASM_TRAILING_BYTES);
-	return NULL;
+	if (reader.offset + 1 != reader.size) { 
+		error("Start section has stray bytes");
+		return WASM_TRAILING_BYTES;
+	}
+
+	return WASM_SUCCESS;
 }
 
 static const uint8_t maxInitExprSize = 15; // Largest size of 'init' for Global/data/element sections
