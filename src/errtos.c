@@ -35,7 +35,8 @@ static const char* error_to_string[] = {
     [WASM_INVALID_TABLE_INDEX] = "Only table index 0 can be referenced from element sections\n",
     [WASM_NO_TYPE] = "Function and/or code section is present but types secrion is absent\n",
     [WASM_FUNCTION_CODE_MISMATCH] = "Number of function indices does not match with number of code bodies\n",
-    [WASM_INVALID_TYPE_INDEX] = "Index into type section is invalid\n"
+    [WASM_INVALID_TYPE_INDEX] = "Index into type section is invalid\n",
+    [WASM_INVALID_LIMIT_TYPE] = "Limit type is not 0(min) or 1 (min-max)\n"
 };
 
 

@@ -241,7 +241,7 @@ static int parseTypeSection(struct ParseSectionParams* params) {
 				params->section->types[i].params[j] = fetchRawU8(&reader);
 				CHECK_IF_FILE_TRUNCATED(reader);
 				if (!CHECK_IF_VALID_VALTYPE(params->section->types[i].params[j])) {
-					error("Value type of function is not between 0x7F and 0x7C (only the MVP supported ones)");
+					error("Value type of a function parameter is %u which is not valid", params->section->types[i].params[j]);
 					return WASM_INVALID_TYPEVAL;
 				}
 			}
@@ -264,7 +264,7 @@ static int parseTypeSection(struct ParseSectionParams* params) {
 			uint8_t rtype = fetchRawU8(&reader);
 			CHECK_IF_FILE_TRUNCATED(reader);
 			if (!(CHECK_IF_VALID_VALTYPE(rtype))) {
-				error("Return type is not a valid valtype (not between 0x7F and 0x7C");
+				error("Return type %u which is not a valid valtype", rtype);
                 		return WASM_INVALID_TYPEVAL;
 			}
 			
@@ -369,7 +369,7 @@ static int parseImportSection(struct ParseSectionParams* params) {
 		params->section->imports[i].type = fetchRawU8(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
 		if (params->section->imports[i].type >= WASM_MAXTYPE) {
-			error("Not a valid import type");
+			error("Expected valid import type but got %u", params->section->imports[i].type);
 			return WASM_INVALID_IMPORT_TYPE;
 		}
 
@@ -441,8 +441,10 @@ static int parseTableSection(struct ParseSectionParams* params) {
 		return WASM_TOO_MANY_TABLES;
 	}
 
-	if (fetchU32(&reader) != 0x70) {
-		error("Tables can only have function refs (0x70)");
+	uint8_t ty = fetchRawU8(&reader);;
+
+	if (ty != 0x70) {
+		error("Tables can only have function refs (0x70), but got %u", ty);
 		return WASM_INVALID_TABLE_ELEMENT_TYPE;
 	}
 
@@ -454,6 +456,11 @@ static int parseTableSection(struct ParseSectionParams* params) {
 	params->section->table = malloc(sizeof(struct TableSectionTable));
 
 	uint8_t limtype = fetchRawU8(&reader);
+	if (limtype > 1) {
+		error("Invalid limit type %u", limtype);
+		return WASM_INVALID_LIMIT_TYPE;
+	}
+
 	debug("Limit type = %s", (limtype) ? "min-max" : "min");
 	CHECK_IF_FILE_TRUNCATED(reader);
 
@@ -505,6 +512,12 @@ static int parseMemorySection(struct ParseSectionParams* params) {
 
 	uint8_t limtype = fetchRawU8(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);
+
+	if (limtype > 1) {
+		error("Invalid limit type %u", limtype);
+		return WASM_INVALID_LIMIT_TYPE;
+	}
+
 	debug("Limit type = %s", (limtype) ? "min-max" : "min");
 
 	if (limtype) {
@@ -578,7 +591,7 @@ static int parseExportSection(struct ParseSectionParams* params) {
 		params->section->exports[i].type = fetchRawU8(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
 		if (params->section->exports[i].type >= WASM_MAXTYPE) {
-			error("Export type is not valid must be between 0 and 3");
+			error("Export type is not valid must be between 0 and 3 but is %u", params->section->exports[i].type);
 			return WASM_INVALID_IMPORT_TYPE;
 		}
 
@@ -597,6 +610,7 @@ static int parseExportSection(struct ParseSectionParams* params) {
 }
 
 static int parseStartSection(struct ParseSectionParams* params) {
+	debug("Parsing start section");
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
@@ -621,8 +635,7 @@ static int parseStartSection(struct ParseSectionParams* params) {
 
 static const uint8_t maxInitExprSize = 15; // Largest size of 'init' for Global/data/element sections
 
-static void* parseGlobalSection(void* arg) {
-	struct ParseSectionParams* params = arg;
+static int parseGlobalSection(struct ParseSectionParams* params) {
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
@@ -630,14 +643,16 @@ static void* parseGlobalSection(void* arg) {
 
 	uint32_t size = fetchU32(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);
+	debug("Number of globals = %u", size);
 
 	params->section->name = "Global";
 	params->section->hash = WASM_HASH_Global;
 	params->section->flags = size;
 
 	if (!size) {
+		debug("Globals section present but empty");
 		params->section->custom = NULL;
-		return NULL;
+		return WASM_SUCCESS;
 	} 
 
 	params->section->globals = malloc(sizeof(struct GlobalSectionGlobal) * size);
@@ -645,24 +660,30 @@ static void* parseGlobalSection(void* arg) {
 	for (int i = 0; i < size; i++) {
 		params->section->globals[i].valtype = fetchRawU8(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
-		if (!CHECK_IF_VALID_VALTYPE(params->section->globals[i].valtype)) 
-			return ((void*) WASM_INVALID_TYPEVAL);
+		if (!CHECK_IF_VALID_VALTYPE(params->section->globals[i].valtype)) {
+			error("Invalid global type %u", params->section->globals[i].valtype);
+			return WASM_INVALID_TYPEVAL;
+		}
 
 		params->section->globals[i].mut = fetchRawU8(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
-		if (params->section->globals[i].mut > 1) 
-			return ((void*) WASM_INVALID_GLOBAL_MUTABILITY);
+		if (params->section->globals[i].mut > 1) {
+			error("Global mutability flag is %u which is invalid in this context", params->section->globals[i].mut);
+			return WASM_INVALID_GLOBAL_MUTABILITY;
+		}
 
 		uint32_t offset = reader.offset;
 		int initSize = 1;
 		while (1) {
-			if (initSize > maxInitExprSize) 
-				return ((void*) WASM_INIT_TOO_LONG);
+			if (initSize > maxInitExprSize) {
+				error("Init expression size = %u > 15", initSize);
+				return WASM_INIT_TOO_LONG;
+			}
 
-			uint8_t op = fetchRawU8(&reader);
-			CHECK_IF_FILE_TRUNCATED(reader);
-			if (op == 0x0B) 
+			if (fetchRawU8(&reader) == 0x0B) 
 				break;
+
+			CHECK_IF_FILE_TRUNCATED(reader);
 			initSize++;
 		}
 
@@ -671,19 +692,17 @@ static void* parseGlobalSection(void* arg) {
 		memcpy(params->section->globals[i].expr, (uint8_t*)reader._data + offset, initSize);
 		skip(&reader, initSize);
 		CHECK_IF_FILE_TRUNCATED(reader);
+
+		debug("Globals[%u] : Value Type = %d Mutable = %d Initsize = %d", i, params->section->globals[i].valtype, params->section->globals[i].mut, initSize);
 	}
 
-	/*
-	for (int i = 0; i < size; i++) {
-		printf("Mutable = %d Type = %d\n", params->section->globals[i].mut, params->section->globals[i].valtype);
+
+	if (reader.offset + 1 != reader.size) { 
+		error("Global section has stray bytes");
+		return WASM_TRAILING_BYTES;
 	}
-	*/
-	
 
-	if (reader.offset + 1 != reader.size)                              
-		return ((void*) WASM_TRAILING_BYTES);
-
-	return NULL;
+	return WASM_SUCCESS;;
 }
 
 static void* parseDataSection(void* arg) {
