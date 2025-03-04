@@ -4,6 +4,7 @@ objs/**
 sample
 a.out
 **.swp
+**.wd
 objs-debug/**
 debug
 release
