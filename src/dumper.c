@@ -158,6 +158,24 @@ int dumpModule(struct WasmModule* module) {
     return WASM_SUCCESS;
 }
 
+static uint8_t getU8(uint8_t* buf, uint32_t* offset) {
+	*offset += 1;
+	return buf[*offset - 1];
+}
+
+static uint16_t getU16(uint8_t* buf, uint32_t* offset) {
+	*offset += 2;
+	return (((uint16_t) buf[*offset - 1]) << 8 | buf[*offset - 2]);
+}
+
+static uint32_t getU32(uint8_t* buf, uint32_t* offset) {
+	*offset += 4;
+	return (((uint32_t) buf[*offset - 1]) << 24 | 
+			((uint32_t) buf[*offset - 2]) << 16 |
+			((uint32_t) buf[*offset - 3]) << 8  |
+			((uint32_t) buf[*offset - 4]));
+}
+
 int loadDump(struct WasmModule* module, const char* fname) {
 	if (!module) {
 		error("Module is null");
@@ -179,20 +197,15 @@ int loadDump(struct WasmModule* module, const char* fname) {
 	fclose(file);
 	uint32_t offset = 0;
 
-	if (((uint32_t*) buf)[0] != DUMP_MAGIC)  {
-		error("Not a valid dump file");
+	if (getU32(buf, &offset) != DUMP_MAGIC) {
+		error("Not a dump file");
 		return WASM_FILE_INVALID_MAGIC;
 	}
 
-	offset += 4;
-
-	if (((uint16_t*)buf)[2] != DUMP_VERSION) {
-		error("Invalid dump version");
+	if (getU16(buf, &offset) != DUMP_VERSION) {
+		error("Not the current dump file version");
 		return WASM_FILE_INVALID_VERSION;
 	}
-
-	offset += 2;
-	info("Loaded dump file %s", fname);
 
 	return WASM_SUCCESS;
 }
