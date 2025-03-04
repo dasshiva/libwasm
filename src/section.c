@@ -116,7 +116,7 @@ static int parseNameSection(struct WasmModuleReader reader, struct ParseSectionP
 	// We do not care about the rest for now
 	// Also we are not allowed to throw errors for invalid data in custom sections
 	// So simply return if anything is not right
-	debug("Parsing section '\'name\'");
+	debug("Parsing section \'name\'");
 
 	uint8_t id = fetchRawU8(&reader);
 	if (!id) { // This is the module section
@@ -140,7 +140,7 @@ static int parseNameSection(struct WasmModuleReader reader, struct ParseSectionP
 		memcpy(params->section->names->moduleName, (uint8_t*)reader._data + reader.offset, size);
 		params->section->names->moduleName[size] = '\0';
 
-		warn("Module name = %s", params->section->names->moduleName);
+		debug("Module name = %s", params->section->names->moduleName);
 		skip(&reader, size);
 		CHECK_IF_FILE_TRUNCATED(reader);
 	} 
@@ -186,7 +186,7 @@ static int parseNameSection(struct WasmModuleReader reader, struct ParseSectionP
 	else 
 		warn("Expected subsection id 1 but got %d, bailing", id);
 
-	warn("All other subsection id's are skipped");
+	info("All other subsection id's are skipped");
 	
 
 	// Ignore all other subsections till we add support for them
@@ -326,23 +326,23 @@ static int parseImportSection(struct ParseSectionParams* params) {
 
 	for (int i = 0; i < size; i++) {
 		uint32_t modlen = fetchU32(&reader) + 1; // space for null
-        	if (!modlen) {
+        if (!modlen) {
 			error("Import module name is empty");
-            		return WASM_EMPTY_NAME;
+            return WASM_EMPTY_NAME;
 		}
 
-        	CHECK_IF_FILE_TRUNCATED(reader);
+        CHECK_IF_FILE_TRUNCATED(reader);
 
 		if (reader.offset + modlen - 1>= reader.size) {
 			error("Import section is truncated");
 			return WASM_TRUNCATED_SECTION;
 		}
 
-        	params->section->imports[i].module = malloc(sizeof(const char*) * modlen);
-        	memcpy(params->section->imports[i].module, (uint8_t*)reader._data + reader.offset, modlen);
-        	params->section->imports[i].module[modlen - 1] = '\0';
+        params->section->imports[i].module = malloc(sizeof(const char*) * modlen);
+        memcpy(params->section->imports[i].module, (uint8_t*)reader._data + reader.offset, modlen);
+        params->section->imports[i].module[modlen - 1] = '\0';
 		params->section->imports[i].hashModule = hash(params->section->imports[i].module);
-        	skip(&reader, modlen - 1);
+        skip(&reader, modlen - 1);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
 		uint32_t namelen = fetchU32(&reader) + 1; // space for null
@@ -351,7 +351,7 @@ static int parseImportSection(struct ParseSectionParams* params) {
 			return WASM_EMPTY_NAME;
 		}
 
-        	CHECK_IF_FILE_TRUNCATED(reader);
+        CHECK_IF_FILE_TRUNCATED(reader);
 
 		if (reader.offset + namelen - 1 >= reader.size) {
 			error("Import section is truncated");
@@ -363,7 +363,7 @@ static int parseImportSection(struct ParseSectionParams* params) {
 		params->section->imports[i].name[namelen - 1] = '\0';
 		params->section->imports[i].hashName = hash(params->section->imports[i].name);
 
-        	skip(&reader, namelen - 1);
+        skip(&reader, namelen - 1);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
 		params->section->imports[i].type = fetchRawU8(&reader);
@@ -376,7 +376,7 @@ static int parseImportSection(struct ParseSectionParams* params) {
 		params->section->imports[i].index = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
-		debug("Import[%d] %s.%s valtype = %u index = %u", i, params->section->imports[i].module, params->section->imports[i].name, params->section->imports[i].type, params->section->imports[i].name); 
+		debug("Import[%d] %s.%s type = %u index = %d", i, params->section->imports[i].module, params->section->imports[i].name, params->section->imports[i].type, params->section->imports[i].index); 
 	}
 
 
@@ -497,10 +497,10 @@ static int parseMemorySection(struct ParseSectionParams* params) {
 	reader.size = params->size + params->offset + 1;
 
 	uint32_t size = fetchU32(&reader);
-	debug("Number of memories = %u");
+	debug("Number of memories = %u", size);
 	CHECK_IF_FILE_TRUNCATED(reader);
 
-	if (size != 1) {
+	if (size > 1) {
 		debug("Multi-memory is not supported");
 		return WASM_TOO_MANY_MEMORIES;
 	}
@@ -866,7 +866,7 @@ static int parseCodeSection(struct ParseSectionParams* params) {
 		skip(&reader, copySize);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
-		debug("Code[%u]: codeSize = %d localsSize = %d\n", i, params->section->code[i].codeSize, params->section->code[i].localSize);
+		debug("Code[%u]: codeSize = %d localsSize = %d", i, params->section->code[i].codeSize, params->section->code[i].localSize);
 	}
 
 	if (reader.offset + 1 != reader.size) {
