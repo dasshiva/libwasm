@@ -74,13 +74,17 @@ int dumpModule(struct WasmModule* module) {
         return WASM_FILE_ACCESS_ERROR;
     }
 
+    l += 4;
+
     write(&DUMP_MAGIC, file);
     write(&DUMP_VERSION, file);
     write(&l, file);
+    info("L = %d", l);
     write_string(name, file);
     write(&module->flags, file);
     write(&module->nglobals, file);
     write(&module->nfuncs, file);
+    info("Flags = %lu nglobals = %lu nfuncs = %lu", module->flags, module->nglobals, module->nfuncs);
 
     for (int i = 0; i < module->nfuncs; i++) {
         if (module->functions[i].name) {
@@ -176,6 +180,19 @@ static uint32_t getU32(uint8_t* buf, uint32_t* offset) {
 			((uint32_t) buf[*offset - 4]));
 }
 
+static uint64_t getU64(uint8_t* buf, uint32_t* offset) {
+	*offset += 4;
+	return (((uint64_t) buf[*offset - 1]) << 56 | 
+			((uint64_t) buf[*offset - 2]) << 48 |
+			((uint64_t) buf[*offset - 3]) << 40 |
+			((uint64_t) buf[*offset - 4]) << 32 |
+            ((uint64_t) buf[*offset - 5]) << 24 |
+            ((uint64_t) buf[*offset - 6]) << 16 |
+            ((uint64_t) buf[*offset - 7]) << 8  |
+            ((uint64_t) buf[*offset - 8]));
+}
+
+
 int loadDump(struct WasmModule* module, const char* fname) {
 	if (!module) {
 		error("Module is null");
@@ -207,5 +224,15 @@ int loadDump(struct WasmModule* module, const char* fname) {
 		return WASM_FILE_INVALID_VERSION;
 	}
 
+    int len = getU32(buf, &offset);
+    module->name = (char*) (buf + offset);
+    offset += len;
+
+    module->flags = getU32(buf, &offset);
+    offset += 4;
+    module->nglobals = getU32(buf, &offset);
+    offset += 4;
+    module->nfuncs = getU32(buf, &offset);
+    info("Flags = %d globals = %d funcs = %d", module->flags, module->nglobals, module->nfuncs);
 	return WASM_SUCCESS;
 }
