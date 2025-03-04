@@ -15,9 +15,9 @@
     } \
 }
 
-void* internal_error(void* arg) {
-	printf("Parse function at invalid index called");
-	return NULL;
+int internal_error(struct ParseSectionParams* arg) {
+	error("Internal error: Parse function at invalid index called");
+	return WASM_SUCCESS;
 }
 
 /*
@@ -636,6 +636,7 @@ static int parseStartSection(struct ParseSectionParams* params) {
 static const uint8_t maxInitExprSize = 15; // Largest size of 'init' for Global/data/element sections
 
 static int parseGlobalSection(struct ParseSectionParams* params) {
+	debug("Parsing global section");
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
@@ -702,44 +703,52 @@ static int parseGlobalSection(struct ParseSectionParams* params) {
 		return WASM_TRAILING_BYTES;
 	}
 
-	return WASM_SUCCESS;;
+	return WASM_SUCCESS;
 }
 
-static void* parseDataSection(void* arg) {
-	struct ParseSectionParams* params = arg;
+static int parseDataSection(struct ParseSectionParams* params) {
+	debug("Parsing Data section");
+
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
 	reader.size = params->size + params->offset + 1;
 
-	uint32_t size = fetchU32(&reader);
+	uint32_t size = fetchU32(&reader);	
 	CHECK_IF_FILE_TRUNCATED(reader);
+	debug("Number of data entries in data section = %u", size);
 
 	params->section->name = "Data";
 	params->section->hash = WASM_HASH_Data;
 	params->section->flags = size;
 
 	if (!size) {
+		warn("Data section present but empty");
 		params->section->custom = NULL;
-		return NULL;
+		return WASM_SUCCESS;;
 	}
 
 	params->section->data = malloc(sizeof(struct DataSectionData) * size);
 	for (int i = 0; i < size; i++) {
-		if (fetchU32(&reader) != 0) 
-			return ((void*) WASM_INVALID_MEMORY_INDEX);
+		uint32_t memidx = fetchU32(&reader);
 		CHECK_IF_FILE_TRUNCATED(reader);
+		if (memidx != 0) {
+			error("Invalid memory index = %u", memidx);
+			return WASM_INVALID_MEMORY_INDEX;
+		}
+		
 
 		uint32_t off = reader.offset;
 		uint8_t exprSize = 1;
 		while (1) {
-			if (exprSize >= maxInitExprSize) 
-				return ((void*) WASM_INIT_TOO_LONG);
+			if (exprSize >= maxInitExprSize) {
+				error("exprSize %u >= 15", exprSize);
+				return WASM_INIT_TOO_LONG;
+			}
 
 			if (fetchRawU8(&reader) == 0xB)
 				break;
 			CHECK_IF_FILE_TRUNCATED(reader);
-			
 			exprSize += 1;
 		}
 
@@ -753,23 +762,29 @@ static void* parseDataSection(void* arg) {
 		CHECK_IF_FILE_TRUNCATED(reader);
 		params->section->data[i].len = dataSize;
 		params->section->data[i].bytes = malloc(sizeof(uint8_t) * dataSize);
-		if (reader.offset + dataSize >= reader.size)
-			return ((void*) WASM_TRUNCATED_SECTION);
+		if (reader.offset + dataSize >= reader.size) {
+			error("Truncated data section");
+			return WASM_TRUNCATED_SECTION;
+		}
 
 		memcpy(params->section->data[i].bytes, (uint8_t*)reader._data + reader.offset, dataSize);
 		skip(&reader, dataSize);
 		CHECK_IF_FILE_TRUNCATED(reader);
 
+		debug("Data[%u]: ExprSize = %u DataSize = %u", i, exprSize, dataSize);
+
 	}
 
-	if (reader.offset + 1 != reader.size)
-		return ((void*) WASM_TRAILING_BYTES);
+	if (reader.offset + 1 != reader.size) {
+		error("Data section has stray bytes");
+		return WASM_TRAILING_BYTES;
+	}
 
-	return NULL;
+	return WASM_SUCCESS;
 }
 
-static void* parseCodeSection(void* arg) {
-	struct ParseSectionParams* params = arg;
+static int parseCodeSection(struct ParseSectionParams* params) {
+	debug("Parsing code section");
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
@@ -777,16 +792,18 @@ static void* parseCodeSection(void* arg) {
 
 	uint32_t size = fetchU32(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);
+	debug("Number of code bodies in code section = %u", size);
 
 	params->section->name = "Code";
 	params->section->hash = WASM_HASH_Code;
+	params->section->flags = size;
+
 	if (!size) {
+		warn("Code section present but empty");
 		params->section->custom = NULL;
-		params->section->flags = 0;
-		return NULL;
+		return WASM_SUCCESS;
 	}
 
-	params->section->flags = size;
 	params->section->code = malloc(sizeof(struct CodeSectionCode) * size);
 
 	for (int i = 0; i < size; i++) {
@@ -832,32 +849,37 @@ static void* parseCodeSection(void* arg) {
 
 		params->section->code[i].codeSize = codeSize;
 		params->section->code[i].expr = malloc(sizeof(uint8_t) * codeSize);
-		if (reader.offset + codeSize >= reader.size) 
-			return ((void*) WASM_TRUNCATED_SECTION);
+		if (reader.offset + codeSize >= reader.size) {
+			error("Code section truncated");
+			return WASM_TRUNCATED_SECTION;
+		}
+
 		memcpy(params->section->code[i].expr, (uint8_t*)reader._data + reader.offset, codeSize);
 
-		if (params->section->code[i].expr[codeSize - 1] != 0xB) 
-			return ((void*) WASM_INVALID_EXPR);
+		if (params->section->code[i].expr[codeSize - 1] != 0xB) {
+			error("Code body ends with 0x%x instead of 0xB", params->section->code[i].expr[codeSize - 1]);
+			return WASM_INVALID_EXPR;
+		}
 		
 
 		reader.offset = poff;
 		skip(&reader, copySize);
 		CHECK_IF_FILE_TRUNCATED(reader);
+
+		debug("Code[%u]: codeSize = %d localsSize = %d\n", i, params->section->code[i].codeSize, params->section->code[i].localSize);
 	}
 
-	/*
-	for (int i = 0; i < size; i++) {
-		printf("codeSize = 0x%x locals = 0x%x\n", params->section->code[i].codeSize, params->section->code[i].localSize);
-	} */
+	if (reader.offset + 1 != reader.size) {
+		error("Code section has stray bytes");
+		return WASM_TRAILING_BYTES;
+	}
 
-	if (reader.offset + 1 != reader.size)
-		return ((void*) WASM_TRAILING_BYTES);
-
-	return NULL;
+	return WASM_SUCCESS;
 }
 
-static void* parseElementSection(void* arg) {                                  
-	struct ParseSectionParams* params = arg;
+static int parseElementSection(struct ParseSectionParams* params) {  
+	debug("Parsing element section");
+
 	struct WasmModuleReader reader;
 	reader._data = params->data;
 	reader.offset = params->offset;
@@ -865,27 +887,35 @@ static void* parseElementSection(void* arg) {
 
 	uint32_t size = fetchU32(&reader);
 	CHECK_IF_FILE_TRUNCATED(reader);
+	debug("Number of initialisers in element section = %u", size);
 
 	params->section->name = "Element";
 	params->section->hash = WASM_HASH_Element;
 	params->section->flags = size;
 
 	if (!size) {
+		warn("Element section present but empty");
 		params->section->custom = NULL;
-		return NULL;
+		return WASM_SUCCESS;
 	}
 
 	params->section->element = malloc(sizeof(struct ElementSectionElement) * size);
 	for (int i = 0; i < size; i++) {
-		if (fetchU32(&reader) != 0) 
-			return ((void*) WASM_INVALID_TABLE_INDEX);
+		uint32_t tabidx = fetchU32(&reader);
+
+		if (tabidx != 0) {
+			error("Invalid table index = %u", tabidx);
+			return WASM_INVALID_TABLE_INDEX;
+		}
 		CHECK_IF_FILE_TRUNCATED(reader);
 
 		uint32_t off = reader.offset;
 		uint8_t exprSize = 1;
 		while (1) {
-			if (exprSize >= maxInitExprSize) 
-				return ((void*) WASM_INIT_TOO_LONG);
+			if (exprSize >= maxInitExprSize) {
+				error("exprSize %u >= 15", exprSize);
+				return WASM_INIT_TOO_LONG;
+			}
 
 			if (fetchRawU8(&reader) == 0xB)
 				break;
@@ -908,12 +938,16 @@ static void* parseElementSection(void* arg) {
 			params->section->element[i].funcidx[i] = fetchU32(&reader);
 			CHECK_IF_FILE_TRUNCATED(reader);
 		}
+
+		debug("Element [%u]: exprSize = %u dataSize = %u", i, exprSize, dataSize);
 	}
 
-	if (reader.offset + 1 != reader.size)
-		return ((void*) WASM_TRAILING_BYTES);
+	if (reader.offset + 1 != reader.size) {
+		error("Element section has stray bytes");
+		return WASM_TRAILING_BYTES;
+	}
 
-	return NULL;
+	return WASM_SUCCESS;
 }
 
 const parseFnList parseSectionList[] = {
