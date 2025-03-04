@@ -17,7 +17,7 @@
 
 int internal_error(struct ParseSectionParams* arg) {
 	error("Internal error: Parse function at invalid index called");
-	return WASM_SUCCESS;
+	return WASM_INTERNAL_ERROR;
 }
 
 /*

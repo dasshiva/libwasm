@@ -36,7 +36,8 @@ static const char* error_to_string[] = {
     [WASM_NO_TYPE] = "Function and/or code section is present but types secrion is absent\n",
     [WASM_FUNCTION_CODE_MISMATCH] = "Number of function indices does not match with number of code bodies\n",
     [WASM_INVALID_TYPE_INDEX] = "Index into type section is invalid\n",
-    [WASM_INVALID_LIMIT_TYPE] = "Limit type is not 0(min) or 1 (min-max)\n"
+    [WASM_INVALID_LIMIT_TYPE] = "Limit type is not 0(min) or 1 (min-max)\n",
+    [WASM_INTERNAL_ERROR] = "Internal error: Possible bug detected\n"
 };
 
 
