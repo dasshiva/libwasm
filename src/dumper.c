@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-
+#include <sys/stat.h>
 extern int errno;
 
-static const uint32_t DUMP_MAGIC = 0xBADF00D;
+static const uint32_t DUMP_MAGIC = 0x0BADF00D;
 static const uint16_t DUMP_VERSION = 0x0001;
 static const char* UNNAMED_MODULE = "<UNNAMED>";
 static const char* UNNAMED_FUNC = "<UNNAMED-FUNCTION>";
@@ -152,6 +152,47 @@ int dumpModule(struct WasmModule* module) {
         int t = 0;
         write(&t, file);
     }
+
+    fclose(file);
     
     return WASM_SUCCESS;
+}
+
+int loadDump(struct WasmModule* module, const char* fname) {
+	if (!module) {
+		error("Module is null");
+		return WASM_ARGUMENT_NULL;
+	}
+	
+	FILE* file = fopen(fname, "r");
+	if (!file) {
+		error("File %s cannot be accessed", fname);
+		return WASM_FILE_ACCESS_ERROR;
+	}
+
+	fseek(file, 0, SEEK_END);
+	uint32_t size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+
+	uint8_t* buf = malloc(size * sizeof(char));
+	fread(buf, size, 1, file);
+	fclose(file);
+	uint32_t offset = 0;
+
+	if (((uint32_t*) buf)[0] != DUMP_MAGIC)  {
+		error("Not a valid dump file");
+		return WASM_FILE_INVALID_MAGIC;
+	}
+
+	offset += 4;
+
+	if (((uint16_t*)buf)[2] != DUMP_VERSION) {
+		error("Invalid dump version");
+		return WASM_FILE_INVALID_VERSION;
+	}
+
+	offset += 2;
+	info("Loaded dump file %s", fname);
+
+	return WASM_SUCCESS;
 }

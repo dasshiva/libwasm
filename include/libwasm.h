@@ -111,7 +111,7 @@ enum {
 	WASM_INVALID_EXPR,
 	WASM_INVALID_MEMORY_INDEX,
 	WASM_INVALID_TABLE_INDEX,
-    WASM_TRUNCATED_SECTION,
+    	WASM_TRUNCATED_SECTION,
 	WASM_INVALID_LIMIT_TYPE,
 	WASM_INTERNAL_ERROR,
 	WASM_MAX_ERROR,
@@ -259,4 +259,5 @@ int validateModule(struct WasmModule* module);
 int findSectionByHash(struct WasmModule* mod, const uint64_t hash);
 
 int dumpModule(struct WasmModule* module);
+int loadDump(struct WasmModule* module, const char* file);
 #endif

@@ -30,8 +30,11 @@ int main(int argc, const char* argv[]) {
         if (dumpModule(mod)) 
             return 1;
         destroyReader(&reader);
-
         argv++;
     }
+
+    Module m;
+    if (loadDump(&m, "hello.c.wasm.wd"))
+	    return 1;
     return 0;
 }
