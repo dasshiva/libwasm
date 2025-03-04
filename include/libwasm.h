@@ -43,6 +43,7 @@ struct WasmModule {
 	uint64_t                      hash;
 	uint64_t                      flags;
 	uint64_t                      nglobals;
+	uint64_t                      nfuncs;
 	struct   Section*             sections;
 	struct   Function*            functions;
 	struct   GlobalSectionGlobal* globals;
@@ -173,6 +174,7 @@ struct GlobalSectionGlobal {
 	uint8_t* expr;
 	uint8_t  mut;
 	uint8_t  valtype;
+	uint8_t  exprSize;
 };
 
 typedef struct GlobalSectionGlobal Global;
@@ -190,6 +192,7 @@ struct DataSectionData {
 	uint8_t* expr;
 	uint8_t* bytes;
 	uint32_t len;
+	uint8_t  exprSize;
 };
 
 typedef struct DataSectionData Data;
@@ -198,6 +201,7 @@ struct ElementSectionElement {
 	uint8_t*   expr;
 	uint32_t*  funcidx;
 	uint32_t   len;
+	uint8_t    exprSize;
 };
 
 typedef struct ElementSectionElement Element;
@@ -205,7 +209,6 @@ typedef struct ElementSectionElement Element;
 typedef struct Function {
 	char*    name;
 	uint64_t hash;
-	uint64_t nfuncs;
 	struct TypeSectionType* signature;
 	struct CodeSectionCode* code;
 } Function;
@@ -213,11 +216,13 @@ typedef struct Function {
 typedef struct Memory {
 	struct TableSectionTable*     memory;
 	struct DataSectionData*       init;
+	uint32_t  nData;
 } Memory;
 
 typedef struct Table {
 	struct TableSectionTable*     table;
 	struct ElementSectionElement* init;
+	uint32_t  nElement;
 } Table;
 
 struct NameSectionName {
@@ -252,4 +257,6 @@ struct Section {
 
 int validateModule(struct WasmModule* module);
 int findSectionByHash(struct WasmModule* mod, const uint64_t hash);
+
+int dumpModule(struct WasmModule* module);
 #endif

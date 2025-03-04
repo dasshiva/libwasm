@@ -27,6 +27,8 @@ int main(int argc, const char* argv[]) {
         
         Module* mod = getModuleFromReader(&reader);
         printf("Successfully loaded module = %s\n", mod->name);
+        if (dumpModule(mod)) 
+            return 1;
         destroyReader(&reader);
 
         argv++;

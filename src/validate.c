@@ -70,7 +70,7 @@ int validateModule(struct WasmModule *module) {
         module->functions[i].name = NULL;
     }
 
-    module->functions->nfuncs = function.flags + imported;
+    module->nfuncs = function.flags + imported;
 
     int nameidx = findSectionByHash(module, WASM_HASH_name);
     if (nameidx != -1) {
@@ -108,12 +108,14 @@ int validateModule(struct WasmModule *module) {
     module->tables = malloc(sizeof(struct Table) * 1);
     module->tables->table = (tabidx == -1) ? NULL : module->sections[tabidx].table;
     module->tables->init = (elementidx == -1) ? NULL : module->sections[elementidx].element;
+    module->tables->nElement =  (elementidx == -1) ? 0 : module->sections[elementidx].flags;
 
     int memidx = findSectionByHash(module, WASM_HASH_Memory);
     int dataidx = findSectionByHash(module, WASM_HASH_Data);
     module->memories = malloc(sizeof(struct Memory) * 1);
     module->memories->memory = (memidx == -1) ? NULL : module->sections[memidx].memory;
     module->memories->init = (dataidx == -1) ? NULL : module->sections[dataidx].data;
+    module->memories->nData =  (dataidx == -1) ? 0 : module->sections[dataidx].flags;
 
     int globalidx = findSectionByHash(module, WASM_HASH_Global);
     module->globals = (globalidx == -1) ? NULL : module->sections[globalidx].globals;

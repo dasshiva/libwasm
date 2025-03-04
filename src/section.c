@@ -689,6 +689,7 @@ static int parseGlobalSection(struct ParseSectionParams* params) {
 		}
 
 		reader.offset = offset;
+		params->section->globals[i].exprSize = initSize;
 		params->section->globals[i].expr = malloc(sizeof(uint8_t) * initSize);
 		memcpy(params->section->globals[i].expr, (uint8_t*)reader._data + offset, initSize);
 		skip(&reader, initSize);
@@ -753,6 +754,7 @@ static int parseDataSection(struct ParseSectionParams* params) {
 		}
 
 		reader.offset = off;
+		params->section->data[i].exprSize = exprSize;
 		params->section->data[i].expr = malloc(sizeof(uint8_t) * exprSize);
 		memcpy(params->section->data[i].expr, (uint8_t*)reader._data + reader.offset, exprSize);
 		skip(&reader, exprSize);
@@ -925,6 +927,7 @@ static int parseElementSection(struct ParseSectionParams* params) {
 		}
 
 		reader.offset = off;
+		params->section->element[i].exprSize = exprSize;
 		params->section->element[i].expr = malloc(sizeof(uint8_t) * exprSize);
 		memcpy(params->section->element[i].expr, (uint8_t*)reader._data + reader.offset, exprSize);
 		skip(&reader, exprSize);
