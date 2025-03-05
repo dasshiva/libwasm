@@ -937,8 +937,8 @@ static int parseElementSection(struct ParseSectionParams* params) {
 		CHECK_IF_FILE_TRUNCATED(reader);
 		params->section->element[i].len = dataSize;
 		params->section->element[i].funcidx = malloc(sizeof(uint32_t) * dataSize); // allocate more than needed
-		for (int i = 0; i < dataSize; i++) {
-			params->section->element[i].funcidx[i] = fetchU32(&reader);
+		for (int j = 0; j < dataSize; j++) {
+			params->section->element[j].funcidx[j] = fetchU32(&reader);
 			CHECK_IF_FILE_TRUNCATED(reader);
 		}
 
